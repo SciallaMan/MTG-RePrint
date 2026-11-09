@@ -12,6 +12,10 @@ textarea { font-family: ui-monospace, monospace; resize: vertical; }
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; align-items: end; }
 .check { display: flex; gap: .5rem; align-items: center; padding-bottom: .5rem; }
 .actions { display: flex; gap: 1rem; align-items: center; }
+.lists { display: flex; gap: .75rem 1rem; align-items: end; flex-wrap: wrap; }
+.lists .field { flex: 1 1 16rem; }
+.save-list { display: flex; gap: .5rem 1rem; align-items: center; flex-wrap: wrap; margin-top: .75rem; }
+.save-list input[type='text'] { width: auto; flex: 0 1 18rem; min-width: 10rem; }
 button { font: inherit; cursor: pointer; border-radius: .5rem; border: 1px solid var(--border); padding: .5rem 1rem; color: inherit; background: var(--surface); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -55,6 +59,7 @@ a.name:hover, a.name:focus-visible { color: var(--accent); text-decoration: unde
 .versions-panel .hint { margin: .5rem; font-size: .85rem; color: var(--muted); }
 .sub { color: var(--muted); font-size: .85rem; }
 .warn { color: var(--warn); font-size: .8rem; }
+.pinned { color: var(--accent); font-size: .8rem; }
 .qty { display: flex; gap: .5rem; align-items: center; margin-top: .25rem; }
 .qty button { padding: .1rem .6rem; }
 dialog.zoom { padding: 0; border: 0; outline: none; background: transparent; max-width: none; max-height: none; overflow: visible; }

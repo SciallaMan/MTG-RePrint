@@ -5,6 +5,8 @@ export interface DeckEntry {
   name: string;
   setCode: string | null;
   number: string | null;
+  /** Scryfall id of a print chosen by hand: used as is when Gatherer still has its images. */
+  printId?: string | null;
 }
 
 export interface ResolveRequest {
@@ -14,6 +16,13 @@ export interface ResolveRequest {
   /** Preferred sets, in order of preference. */
   sets: string[];
   skipBasicLands: boolean;
+  /** Entries to resolve instead of parsing `decklist` (a saved list, with its hand-picked prints). */
+  entries?: DeckEntry[];
+  /**
+   * Prints chosen by hand, by lower-case card name: given to the decklist lines of that card that
+   * name no set and no number (keeps the versions of an open list when its text is edited).
+   */
+  pins?: Record<string, string>;
 }
 
 export interface ResolvedCard {
@@ -81,3 +90,32 @@ export type ResolveEvent =
   | { type: 'card'; index: number; status: 'ok'; card: ResolvedCard }
   | { type: 'card'; index: number; status: 'not_found' | 'error'; message: string }
   | { type: 'done'; found: number; failed: number };
+
+/** A saved list (wishlist): the cards, their quantities and the prints chosen by hand. */
+export interface Wishlist {
+  id: string;
+  name: string;
+  /** Card language the list was saved with. */
+  lang: string;
+  sets: string[];
+  entries: DeckEntry[];
+  /** ISO date of the last save. */
+  updatedAt: string;
+}
+
+export interface WishlistSummary {
+  id: string;
+  name: string;
+  /** Number of cards (sum of the quantities). */
+  cards: number;
+  updatedAt: string;
+}
+
+/** POST /api/lists/save: without `id` a new list is created, with `id` that list is replaced. */
+export interface SaveWishlistRequest {
+  id?: string;
+  name: string;
+  lang: string;
+  sets: string[];
+  entries: DeckEntry[];
+}

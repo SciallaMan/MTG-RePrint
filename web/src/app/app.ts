@@ -1,10 +1,19 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import type { ElementRef } from '@angular/core';
 import { Api } from './api';
-import type { Availability, DeckEntry, PrintOption, ResolveEvent, ResolvedCard } from './api-types';
+import type {
+  Availability,
+  DeckEntry,
+  PrintOption,
+  ResolveEvent,
+  ResolveRequest,
+  ResolvedCard,
+  WishlistSummary,
+} from './api-types';
 import { PER_PAGE, buildPdf } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
+import { pinsOf, toDecklist } from './wishlist';
 
 interface Row {
   entry: DeckEntry;
@@ -94,6 +103,10 @@ export class App {
   /** Increases with every search: late answers for an older list are dropped. */
   private generation = 0;
   private readonly saved = loadSettings();
+  /** The open list as last opened or saved: its text, and its exact entries (with the hand-picked prints). */
+  private listSource: { text: string; entries: DeckEntry[] } | null = null;
+  /** True when the rows were resolved from the entries of the open list (not from edited text). */
+  private rowsFromList = false;
 
   protected readonly languages = LANGUAGES;
   protected readonly perPage = PER_PAGE;
@@ -119,6 +132,15 @@ export class App {
   protected readonly pdfBusy = signal(false);
   protected readonly pdfProgress = signal<{ done: number; total: number } | null>(null);
   protected readonly notice = signal<string | null>(null);
+
+  /** Saved lists (wishlists), most recent first. */
+  protected readonly savedLists = signal<WishlistSummary[]>([]);
+  /** List chosen in the "Saved lists" select. */
+  protected readonly selectedListId = signal('');
+  /** The saved list being worked on (opened or saved), or null. */
+  protected readonly currentList = signal<{ id: string; name: string } | null>(null);
+  protected readonly listName = signal('');
+  protected readonly listBusy = signal(false);
 
   protected readonly sets = computed(() =>
     this.setsText()
@@ -157,6 +179,7 @@ export class App {
         // storage not available: the settings just won't be remembered
       }
     });
+    void this.refreshLists();
   }
 
   protected value(event: Event): string {
@@ -171,6 +194,20 @@ export class App {
     this.abort?.abort();
     const controller = new AbortController();
     this.abort = controller;
+    const request: ResolveRequest = {
+      decklist: this.decklist(),
+      lang: this.lang(),
+      sets: this.sets(),
+      skipBasicLands: this.skipBasicLands(),
+    };
+    if (this.listSource && this.listSource.text === this.decklist()) {
+      // the text is still the open list's: resolve its exact entries (current quantities and versions)
+      request.entries = this.rowsFromList && this.rows().length ? this.rows().map((r) => r.entry) : this.listSource.entries;
+    } else if (this.currentList()) {
+      // the text of the open list was edited: keep the versions chosen by hand, by card name
+      request.pins = pinsOf([...(this.listSource?.entries ?? []), ...this.rows().map((r) => r.entry)].reverse());
+    }
+    this.rowsFromList = request.entries !== undefined;
     this.resolvedLang = this.lang();
     this.generation++;
     this.rows.set([]);
@@ -179,11 +216,7 @@ export class App {
     this.resolved.set(false);
     this.resolving.set(true);
     try {
-      await this.api.resolve(
-        { decklist: this.decklist(), lang: this.lang(), sets: this.sets(), skipBasicLands: this.skipBasicLands() },
-        (event) => this.onEvent(event),
-        controller.signal,
-      );
+      await this.api.resolve(request, (event) => this.onEvent(event), controller.signal);
       this.resolved.set(true);
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -274,7 +307,15 @@ export class App {
       r.versions?.map((v) => (v.id === id ? { ...v, available } : v));
     try {
       const card = await this.api.print(id, this.resolvedLang);
-      this.patchRow(index, gen, (r) => ({ card, state: 'ok', message: undefined, switching: false, versions: mark(r, card.incomplete ? 'front' : 'full') }));
+      this.patchRow(index, gen, (r) => ({
+        // the print chosen by hand is remembered when the list is saved
+        entry: { ...r.entry, printId: card.scryfallId },
+        card,
+        state: 'ok',
+        message: undefined,
+        switching: false,
+        versions: mark(r, card.incomplete ? 'front' : 'full'),
+      }));
     } catch (error) {
       this.patchRow(index, gen, (r) => ({
         switching: false,
@@ -320,6 +361,95 @@ export class App {
         i === index ? { ...row, entry: { ...row.entry, qty: Math.max(0, Math.min(99, row.entry.qty + delta)) } } : row,
       ),
     );
+  }
+
+  protected async refreshLists(): Promise<void> {
+    try {
+      this.savedLists.set(await this.api.lists());
+    } catch {
+      // the server is not reachable: "Find cards" will say so
+    }
+  }
+
+  /** Open the list chosen in the select: its text goes in the box and its cards are looked up. */
+  protected async openList(): Promise<void> {
+    const id = this.selectedListId();
+    if (!id) return;
+    this.error.set(null);
+    try {
+      const list = await this.api.list(id);
+      const text = toDecklist(list.entries);
+      this.listSource = { text, entries: list.entries };
+      this.rowsFromList = false;
+      this.currentList.set({ id: list.id, name: list.name });
+      this.listName.set(list.name);
+      this.decklist.set(text);
+      this.lang.set(list.lang);
+      this.setsText.set(list.sets.join(', '));
+      await this.resolve();
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : String(error));
+      void this.refreshLists(); // it may have been deleted outside the app
+    }
+  }
+
+  /** Save the cards shown below (quantities and versions chosen by hand) in the open list, or in a new one. */
+  protected async saveList(asNew: boolean): Promise<void> {
+    const name = this.listName().trim();
+    if (!name || this.listBusy() || this.resolving()) return;
+    const current = asNew ? null : this.currentList();
+    this.error.set(null);
+    this.notice.set(null);
+    this.listBusy.set(true);
+    try {
+      const list = await this.api.saveList({
+        ...(current ? { id: current.id } : {}),
+        name,
+        lang: this.resolvedLang,
+        sets: this.sets(),
+        entries: this.rows().map((r) => r.entry),
+      });
+      const text = toDecklist(list.entries);
+      this.listSource = { text, entries: list.entries };
+      this.rowsFromList = true;
+      this.decklist.set(text);
+      this.currentList.set({ id: list.id, name: list.name });
+      this.listName.set(list.name);
+      this.selectedListId.set(list.id);
+      this.notice.set(`List "${list.name}" saved.`);
+      await this.refreshLists();
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : String(error));
+    } finally {
+      this.listBusy.set(false);
+    }
+  }
+
+  /** Stop working on the open list (the cards stay on screen; nothing is deleted). */
+  protected closeList(): void {
+    this.currentList.set(null);
+    this.listSource = null;
+    this.rowsFromList = false;
+    this.listName.set('');
+  }
+
+  protected async deleteList(): Promise<void> {
+    const list = this.savedLists().find((l) => l.id === this.selectedListId());
+    if (!list || !confirm(`Delete the list "${list.name}"? This cannot be undone.`)) return;
+    try {
+      await this.api.deleteList(list.id);
+      if (this.currentList()?.id === list.id) this.closeList();
+      this.selectedListId.set('');
+      this.notice.set(`List "${list.name}" deleted.`);
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : String(error));
+    }
+    await this.refreshLists();
+  }
+
+  /** The row shows the print chosen by hand (not a fallback because Gatherer lost it). */
+  protected isPinned(row: Row): boolean {
+    return !!row.entry.printId && row.entry.printId === row.card?.scryfallId;
   }
 
   protected async downloadPdf(): Promise<void> {

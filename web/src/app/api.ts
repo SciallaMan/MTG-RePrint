@@ -1,5 +1,13 @@
 import { Injectable } from '@angular/core';
-import type { PrintOption, ResolveEvent, ResolveRequest, ResolvedCard } from './api-types';
+import type {
+  PrintOption,
+  ResolveEvent,
+  ResolveRequest,
+  ResolvedCard,
+  SaveWishlistRequest,
+  Wishlist,
+  WishlistSummary,
+} from './api-types';
 
 /** Talks to the local MTG RePrint server (same origin: it also serves this app). */
 @Injectable({ providedIn: 'root' })
@@ -51,6 +59,28 @@ export class Api {
   /** Use another print of a card. Fails with the reason when Gatherer has no image for it. */
   async print(id: string, lang: string): Promise<ResolvedCard> {
     return (await this.post<{ card: ResolvedCard }>('/api/print', { id, lang })).card;
+  }
+
+  /** Saved lists, most recently saved first. */
+  async lists(): Promise<WishlistSummary[]> {
+    const res = await fetch('/api/lists');
+    if (!res.ok) throw new Error(await this.errorText(res));
+    return ((await res.json()) as { lists: WishlistSummary[] }).lists;
+  }
+
+  async list(id: string): Promise<Wishlist> {
+    const res = await fetch(`/api/lists/${encodeURIComponent(id)}`);
+    if (!res.ok) throw new Error(await this.errorText(res));
+    return ((await res.json()) as { list: Wishlist }).list;
+  }
+
+  /** Create a list, or replace the one named by `request.id`. */
+  async saveList(request: SaveWishlistRequest): Promise<Wishlist> {
+    return (await this.post<{ list: Wishlist }>('/api/lists/save', request)).list;
+  }
+
+  async deleteList(id: string): Promise<void> {
+    await this.post('/api/lists/delete', { id });
   }
 
   private async post<T>(url: string, body: unknown): Promise<T> {

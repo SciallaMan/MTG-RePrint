@@ -6,3 +6,4 @@ web/.angular/
 web/out-tsc/
 *.tmp
 .DS_Store
+/data/

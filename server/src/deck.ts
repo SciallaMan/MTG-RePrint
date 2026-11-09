@@ -6,9 +6,10 @@ import { gathererLink } from './gatherer.ts';
 import type { Resolver } from './resolver.ts';
 import { printedName, scryfallUrl } from './scryfall.ts';
 import type { ScryfallCard } from './scryfall.ts';
-import type { ResolveEvent, ResolveRequest, ResolvedCard } from './types.ts';
+import type { DeckEntry, ResolveEvent, ResolveRequest, ResolvedCard } from './types.ts';
 
 export const INCOMPLETE_NOTE = 'back face not available on Gatherer: only the front is printed';
+export const PIN_LOST_NOTE = 'the version chosen by hand has no image on Gatherer any more: another print was used';
 
 /** The card sent to the browser, from a Scryfall print and its Gatherer images. */
 export function toResolvedCard(
@@ -42,9 +43,13 @@ export async function resolveDeck(
   emit: (event: ResolveEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const entries = parseDecklist(request.decklist).filter(
-    (e) => !(request.skipBasicLands && BASIC_LANDS.has(e.name.toLowerCase())),
-  );
+  const pins = request.pins ?? {};
+  const entries = (request.entries ?? parseDecklist(request.decklist))
+    .filter((e) => !(request.skipBasicLands && BASIC_LANDS.has(e.name.toLowerCase())))
+    .map((e): DeckEntry => {
+      const pin = pins[e.name.toLowerCase()];
+      return pin && !e.printId && !e.setCode && !e.number ? { ...e, printId: pin } : e;
+    });
   emit({ type: 'start', entries });
 
   let found = 0;
@@ -56,6 +61,23 @@ export async function resolveDeck(
       .filter(Boolean)
       .join(' ') || null;
     try {
+      let pinLost = false;
+      if (entry.printId) {
+        // a print chosen by hand (saved list): used as is, unless Gatherer no longer has it
+        const pinned = await resolver.print(entry.printId);
+        if (pinned.card && pinned.images) {
+          const card = toResolvedCard(pinned.card, pinned.images, {
+            requestedLang: request.lang,
+            requested: null,
+            requestedSetFound: true,
+            langNote: null,
+          });
+          found++;
+          emit({ type: 'card', index, status: 'ok', card });
+          continue;
+        }
+        pinLost = true;
+      }
       const { found: hit, diag } = await resolver.findCard(entry.name, request.lang, sets, entry.number);
       if (!hit) {
         failed++;
@@ -66,7 +88,10 @@ export async function resolveDeck(
         requestedLang: request.lang,
         requested,
         requestedSetFound: requested === null || hit.requestedSetFound,
-        langNote: hit.lang !== request.lang ? explain(diag, request.lang) : null,
+        langNote:
+          [pinLost ? PIN_LOST_NOTE : null, hit.lang !== request.lang ? explain(diag, request.lang) : null]
+            .filter(Boolean)
+            .join('; ') || null,
       });
       found++;
       emit({ type: 'card', index, status: 'ok', card });

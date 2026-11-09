@@ -5,6 +5,24 @@
 
 <main>
   <section class="panel">
+    <div class="lists">
+      <label class="field">
+        <span>Saved lists</span>
+        <select [value]="selectedListId()" (change)="selectedListId.set(value($event))">
+          <option value="" [selected]="selectedListId() === ''">
+            {{ savedLists().length ? 'Choose a list…' : 'No saved lists yet' }}
+          </option>
+          @for (l of savedLists(); track l.id) {
+            <option [value]="l.id" [selected]="l.id === selectedListId()">
+              {{ l.name }} ({{ l.cards }} card{{ l.cards === 1 ? '' : 's' }})
+            </option>
+          }
+        </select>
+      </label>
+      <button type="button" [disabled]="selectedListId() === '' || resolving()" (click)="openList()">Open</button>
+      <button type="button" class="link" [disabled]="selectedListId() === ''" (click)="deleteList()">Delete</button>
+    </div>
+
     <label class="field">
       <span>Decklist</span>
       <textarea
@@ -89,6 +107,34 @@
         </button>
       </div>
 
+      <div class="save-list">
+        @if (currentList(); as list) {
+          <span class="sub">Open list: <strong>{{ list.name }}</strong></span>
+        }
+        <input
+          type="text"
+          maxlength="100"
+          placeholder="List name"
+          aria-label="List name"
+          [value]="listName()"
+          (input)="listName.set(value($event))"
+          (keydown.enter)="saveList(false)"
+        >
+        @if (currentList()) {
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
+            Save
+          </button>
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(true)">
+            Save as new
+          </button>
+          <button type="button" class="link" (click)="closeList()">Close list</button>
+        } @else {
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
+            Save as list
+          </button>
+        }
+      </div>
+
       <ul class="grid">
         @for (row of rows(); track $index; let rowIndex = $index) {
           <li class="item" [class.missing]="row.state === 'not_found' || row.state === 'error'" [class.zero]="row.entry.qty === 0">
@@ -117,6 +163,9 @@
                 <span class="sub">
                   {{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}
                 </span>
+                @if (isPinned(row)) {
+                  <span class="pinned">Version chosen by hand</span>
+                }
                 @if (card.requested && !card.requestedSetFound) {
                   <span class="warn">{{ card.requested }} not available: another print was used</span>
                 }

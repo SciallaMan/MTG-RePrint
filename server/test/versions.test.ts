@@ -6,7 +6,7 @@ import { createHandler, parsePrintRequest, parsePrintsRequest } from '../src/app
 import { gathererLink } from '../src/gatherer.ts';
 import { scryfallUrl } from '../src/scryfall.ts';
 import type { ResolvedCard } from '../src/types.ts';
-import { card, json, pageFor, png, rig, searchRoute } from './helpers.ts';
+import { card, json, pageFor, png, rig, searchRoute, tempLists } from './helpers.ts';
 
 const ID_OK = '11111111-1111-1111-1111-111111111111';
 const ID_NO_IMAGE = '22222222-2222-2222-2222-222222222222';
@@ -65,7 +65,7 @@ test('request validation for /api/prints and /api/print', () => {
 
 test('POST /api/prints and /api/print over HTTP', async () => {
   const { resolver, cache } = await rig(route);
-  const server = http.createServer(createHandler({ resolver, cache, web: null }));
+  const server = http.createServer(createHandler({ resolver, cache, lists: await tempLists(), web: null }));
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   const port = (server.address() as AddressInfo).port;
   const post = async (path: string, body: unknown) => {

@@ -8,7 +8,7 @@ import { after, before, test } from 'node:test';
 import { createHandler, parseResolveRequest } from '../src/app.ts';
 import { FolderSource } from '../src/static.ts';
 import type { ResolveEvent } from '../src/types.ts';
-import { PNG, card, pageFor, png, rig, searchRoute } from './helpers.ts';
+import { PNG, card, pageFor, png, rig, searchRoute, tempLists } from './helpers.ts';
 
 let server: http.Server;
 let port = 0;
@@ -26,7 +26,7 @@ before(async () => {
     ),
   );
   await cache.writeImage('gatherer_TEST.png', PNG);
-  server = http.createServer(createHandler({ resolver, cache, web: new FolderSource(webDir) }));
+  server = http.createServer(createHandler({ resolver, cache, lists: await tempLists(), web: new FolderSource(webDir) }));
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   server.unref(); // see `after`: the server alone must not keep the test process alive
   port = (server.address() as AddressInfo).port;

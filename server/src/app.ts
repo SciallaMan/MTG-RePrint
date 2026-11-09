@@ -7,18 +7,31 @@ import type { Resolver } from './resolver.ts';
 import type { StaticSource } from './static.ts';
 import { contentTypeFor } from './static.ts';
 import { withPriority } from './http.ts';
-import type { PrintRequest, PrintsRequest, ResolveEvent, ResolveRequest } from './types.ts';
+import { LIST_ID } from './lists.ts';
+import type { Lists } from './lists.ts';
+import type {
+  DeckEntry,
+  PrintRequest,
+  PrintsRequest,
+  ResolveEvent,
+  ResolveRequest,
+  SaveWishlistRequest,
+} from './types.ts';
 
 export interface AppDeps {
   resolver: Resolver;
   cache: Cache;
+  /** Saved lists (wishlists). */
+  lists: Lists;
   /** Null when the web app has not been built. */
   web: StaticSource | null;
 }
 
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_ENTRIES = 1000;
+const MAX_LIST_NAME = 100;
 const LANG = /^[a-z]{2,3}$/;
+const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
@@ -54,23 +67,105 @@ async function readBody(req: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+/** Validate a list of cards (entries of a saved list, or sent instead of a decklist). */
+export function parseEntries(value: unknown): DeckEntry[] | string {
+  if (!Array.isArray(value) || value.length > MAX_ENTRIES) return `"entries" must be a list of at most ${MAX_ENTRIES} cards`;
+  const entries: DeckEntry[] = [];
+  for (const [i, item] of value.entries()) {
+    const e = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>;
+    const { qty, name, setCode, number, printId } = e;
+    if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 0 || qty > 99) {
+      return `entry ${i + 1}: "qty" must be a whole number from 0 to 99`;
+    }
+    if (typeof name !== 'string' || name.trim() === '' || name.length > 200) return `entry ${i + 1}: "name" must be a card name`;
+    if (setCode != null && (typeof setCode !== 'string' || !SET_CODE.test(setCode))) {
+      return `entry ${i + 1}: "setCode" must be a set code`;
+    }
+    if (number != null && (typeof number !== 'string' || !/^[\w-]{1,20}$/.test(number))) {
+      return `entry ${i + 1}: "number" must be a collector number`;
+    }
+    if (printId != null && (typeof printId !== 'string' || !UUID.test(printId))) {
+      return `entry ${i + 1}: "printId" must be a Scryfall id`;
+    }
+    entries.push({
+      qty,
+      name: name.trim(),
+      setCode: setCode == null ? null : setCode.toLowerCase(),
+      number: number ?? null,
+      ...(printId == null ? {} : { printId }),
+    });
+  }
+  return entries;
+}
+
+function parsePins(value: unknown): Record<string, string> | string {
+  const error = '"pins" must map card names to Scryfall ids';
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return error;
+  const pairs = Object.entries(value as Record<string, unknown>);
+  if (pairs.length > MAX_ENTRIES) return error;
+  const pins: Record<string, string> = {};
+  for (const [name, id] of pairs) {
+    if (name.trim() === '' || name.length > 200 || typeof id !== 'string' || !UUID.test(id)) return error;
+    pins[name.trim().toLowerCase()] = id;
+  }
+  return pins;
+}
+
+function parseLang(value: unknown, fallback?: string): string | null {
+  const lang = typeof value === 'string' ? value.toLowerCase() : fallback;
+  return lang !== undefined && LANG.test(lang) ? lang : null;
+}
+
+function parseSets(value: unknown): string[] | null {
+  const sets = Array.isArray(value) ? value : [];
+  if (!sets.every((s) => typeof s === 'string' && SET_CODE.test(s))) return null;
+  return (sets as string[]).map((s) => s.toLowerCase());
+}
+
 /** Validate the body of POST /api/resolve. Returns the request, or an error message. */
 export function parseResolveRequest(body: unknown): ResolveRequest | string {
   if (typeof body !== 'object' || body === null) return 'Body must be a JSON object';
   const b = body as Record<string, unknown>;
-  if (typeof b['decklist'] !== 'string') return '"decklist" must be a string';
-  const lang = typeof b['lang'] === 'string' ? b['lang'].toLowerCase() : 'en';
-  if (!LANG.test(lang)) return '"lang" must be a language code such as it or en';
-  const sets = Array.isArray(b['sets']) ? b['sets'] : [];
-  if (!sets.every((s) => typeof s === 'string' && /^[A-Za-z0-9]{2,6}$/.test(s))) {
-    return '"sets" must be a list of set codes';
-  }
+  const entries = b['entries'] === undefined ? undefined : parseEntries(b['entries']);
+  if (typeof entries === 'string') return entries;
+  if (typeof b['decklist'] !== 'string' && !entries) return '"decklist" must be a string';
+  const lang = parseLang(b['lang'], 'en');
+  if (!lang) return '"lang" must be a language code such as it or en';
+  const sets = parseSets(b['sets']);
+  if (!sets) return '"sets" must be a list of set codes';
+  const pins = b['pins'] === undefined ? undefined : parsePins(b['pins']);
+  if (typeof pins === 'string') return pins;
   return {
-    decklist: b['decklist'],
+    decklist: typeof b['decklist'] === 'string' ? b['decklist'] : '',
     lang,
-    sets: (sets as string[]).map((s) => s.toLowerCase()),
+    sets,
     skipBasicLands: b['skipBasicLands'] === true,
+    ...(entries ? { entries } : {}),
+    ...(pins ? { pins } : {}),
   };
+}
+
+/** Validate the body of POST /api/lists/save. */
+export function parseSaveListRequest(body: unknown): SaveWishlistRequest | string {
+  const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const id = b['id'];
+  if (id !== undefined && (typeof id !== 'string' || !LIST_ID.test(id))) return '"id" must be the id of a saved list';
+  const name = typeof b['name'] === 'string' ? b['name'].trim() : '';
+  if (name === '' || name.length > MAX_LIST_NAME) return `"name" must be a name of 1 to ${MAX_LIST_NAME} characters`;
+  const lang = parseLang(b['lang']);
+  if (!lang) return '"lang" must be a language code such as it or en';
+  const sets = parseSets(b['sets']);
+  if (!sets) return '"sets" must be a list of set codes';
+  const entries = parseEntries(b['entries']);
+  if (typeof entries === 'string') return entries;
+  return { ...(id === undefined ? {} : { id }), name, lang, sets, entries };
+}
+
+/** Validate the body of POST /api/lists/delete. */
+export function parseListIdRequest(body: unknown): { id: string } | string {
+  const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const id = b['id'];
+  return typeof id === 'string' && LIST_ID.test(id) ? { id } : '"id" must be the id of a saved list';
 }
 
 /** Validate the body of POST /api/prints. */
@@ -78,8 +173,8 @@ export function parsePrintsRequest(body: unknown): PrintsRequest | string {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const name = b['name'];
   if (typeof name !== 'string' || name.trim() === '' || name.length > 200) return '"name" must be a card name';
-  const lang = b['lang'];
-  if (typeof lang !== 'string' || !LANG.test(lang)) return '"lang" must be a language code such as it or en';
+  const lang = parseLang(b['lang']);
+  if (!lang) return '"lang" must be a language code such as it or en';
   return { name: name.trim(), lang };
 }
 
@@ -88,8 +183,8 @@ export function parsePrintRequest(body: unknown): PrintRequest | string {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const id = b['id'];
   if (typeof id !== 'string' || !UUID.test(id)) return '"id" must be a Scryfall id';
-  const lang = b['lang'];
-  if (typeof lang !== 'string' || !LANG.test(lang)) return '"lang" must be a language code such as it or en';
+  const lang = parseLang(b['lang']);
+  if (!lang) return '"lang" must be a language code such as it or en';
   return { id, lang };
 }
 
@@ -97,6 +192,8 @@ const PARSERS: Record<string, (body: unknown) => object | string> = {
   '/api/resolve': parseResolveRequest,
   '/api/prints': parsePrintsRequest,
   '/api/print': parsePrintRequest,
+  '/api/lists/save': parseSaveListRequest,
+  '/api/lists/delete': parseListIdRequest,
 };
 
 export function createHandler(deps: AppDeps): (req: IncomingMessage, res: ServerResponse) => void {
@@ -109,6 +206,15 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
 
     if (url.pathname === '/api/info' && method === 'GET') {
       return sendJson(res, 200, { name: 'mtg-reprint', version: VERSION, cacheDir: deps.cache.dir });
+    }
+
+    if (url.pathname === '/api/lists' && method === 'GET') {
+      return sendJson(res, 200, { lists: await deps.lists.all() });
+    }
+
+    if (url.pathname.startsWith('/api/lists/') && method === 'GET') {
+      const list = await deps.lists.get(url.pathname.slice('/api/lists/'.length));
+      return list ? sendJson(res, 200, { list }) : sendJson(res, 404, { error: 'This list does not exist' });
     }
 
     if (url.pathname.startsWith('/api/images/') && method === 'GET') {
@@ -142,9 +248,22 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
         }
         const request = parse(parsed);
         if (typeof request === 'string') return sendJson(res, 400, { error: request });
-        if (url.pathname === '/api/resolve') return stream(res, request as ResolveRequest);
-        if (url.pathname === '/api/prints') return prints(res, request as PrintsRequest);
-        return print(res, request as PrintRequest);
+        switch (url.pathname) {
+          case '/api/resolve':
+            return stream(res, request as ResolveRequest);
+          case '/api/prints':
+            return prints(res, request as PrintsRequest);
+          case '/api/print':
+            return print(res, request as PrintRequest);
+          case '/api/lists/save': {
+            const list = await deps.lists.save(request as SaveWishlistRequest);
+            return list ? sendJson(res, 200, { list }) : sendJson(res, 404, { error: 'This list does not exist' });
+          }
+          case '/api/lists/delete':
+            return (await deps.lists.delete((request as { id: string }).id))
+              ? sendJson(res, 200, { deleted: true })
+              : sendJson(res, 404, { error: 'This list does not exist' });
+        }
       }
     }
 

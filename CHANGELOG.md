@@ -4,6 +4,15 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ## [Unreleased]
 
+### Added
+
+- Saved lists (wishlists): save the cards shown, with their quantities and the versions picked by hand, and open them again later. Stored as files in `data/lists` (`--lists-dir`, `MTG_REPRINT_LISTS_DIR`), so clearing the cache does not delete them.
+- `--data-dir` and `MTG_REPRINT_DATA_DIR`.
+
+### Changed
+
+- Everything the app writes now lives in a `data` folder next to the program (`data/cache`, `data/lists`) instead of the system cache folder (AppData, `~/.cache`, `~/Library/Caches`). The old cache folder is no longer used and can be deleted.
+
 ## [0.1.0]
 
 First public version.

@@ -5,6 +5,7 @@ import { Cache } from '../src/cache.ts';
 import { Gatherer } from '../src/gatherer.ts';
 import { Http } from '../src/http.ts';
 import type { FetchLike } from '../src/http.ts';
+import { Lists } from '../src/lists.ts';
 import { Resolver } from '../src/resolver.ts';
 import { Scryfall } from '../src/scryfall.ts';
 import type { ScryfallCard } from '../src/scryfall.ts';
@@ -28,6 +29,11 @@ export const pageFor = (set: string, lang: string, num: string, rid = RID): stri
 export async function tempCache(maxAgeMs = 0): Promise<Cache> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'pm-test-'));
   return new Cache(dir, maxAgeMs);
+}
+
+/** An empty saved-lists folder. */
+export async function tempLists(): Promise<Lists> {
+  return new Lists(await mkdtemp(path.join(os.tmpdir(), 'pm-lists-')));
 }
 
 export interface Rig {

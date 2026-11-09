@@ -39,12 +39,14 @@ Options of the server (`npm start -- --help` lists them all):
 | --- | --- |
 | `--port <n>` | Port to listen on (default 3210; if taken, the next free one is used) |
 | `--no-open` | Do not open the browser |
-| `--cache-dir <dir>` | Where searches and images are stored |
+| `--data-dir <dir>` | Where the app keeps its files (default: a `data` folder next to the program) |
+| `--cache-dir <dir>` | Where searches and images are stored (default: `data/cache`) |
+| `--lists-dir <dir>` | Where saved lists are stored (default: `data/lists`) |
 | `--cache-days <n>` | Days before a cached Scryfall search is refreshed, `0` = never (default 30) |
 | `--refresh` | Ignore cached searches for this run |
 | `--clear-cache` | Delete cached searches and images, then exit |
 
-Environment variables: `MTG_REPRINT_PORT`, `MTG_REPRINT_CACHE_DIR`, `MTG_REPRINT_USER_AGENT`.
+Environment variables: `MTG_REPRINT_PORT`, `MTG_REPRINT_DATA_DIR`, `MTG_REPRINT_CACHE_DIR`, `MTG_REPRINT_LISTS_DIR`, `MTG_REPRINT_USER_AGENT`.
 
 ## Decklist format
 
@@ -61,14 +63,26 @@ One card per line. Exports from Moxfield and Archidekt work as they are.
 
 Card names are English (the Scryfall name), whatever language you want the printed card to be in.
 
+## Saved lists
+
+Below the cards, give the list a name and press **Save as list**. A saved list remembers the cards, their quantities and the versions you picked by hand in the versions panel (marked "Version chosen by hand"); the other cards are looked up again when you open it, with the language and sets of the moment, so they pick up new prints.
+
+- **Open** a list from "Saved lists" above the decklist. You can edit its text, for example to add cards: the versions you picked are kept for the cards that are still there. **Save** updates the list, **Save as new** makes a copy.
+- If Gatherer no longer has the image of a version you picked, another print is used and the card says so.
+- **Where**: one JSON file per list in `data/lists`, next to the program (see [Where files are kept](#where-files-are-kept)). This is not the cache folder: "Clear cache" never deletes your lists.
+
 ## Cache
 
 Everything downloaded is kept on disk, so a second run on the same or a similar deck sends almost no requests.
 
-- **Where**: your system's standard cache folder (`~/.cache/mtg-reprint` on Linux, `~/Library/Caches/mtg-reprint` on macOS, `%LOCALAPPDATA%\mtg-reprint\cache` on Windows).
+- **Where**: `data/cache`, next to the program (see below).
 - **Images** never expire. **Scryfall searches** are refreshed after 30 days, so new prints show up.
 - **Offline**: if the network fails, an expired cached search is used instead of giving up.
 - "Clear cache" in the app (or `--clear-cache`) removes only the files this app creates.
+
+## Where files are kept
+
+The app writes only inside one `data` folder next to the executable (next to the repository's root when run from the sources): `data/cache` and `data/lists`. Nothing goes to AppData, `~/.cache` or similar, so deleting the program's folder removes everything. Keep the program in a folder you can write to; to use another place, pass `--data-dir` (or `MTG_REPRINT_DATA_DIR`).
 
 ## Build the executable
 

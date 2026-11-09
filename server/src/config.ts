@@ -1,4 +1,3 @@
-import os from 'node:os';
 import path from 'node:path';
 
 export const VERSION = '0.1.0';
@@ -51,16 +50,24 @@ export const DEFAULT_CACHE_DAYS = 30;
 /** Prints to try, for each search, before moving on. */
 export const MAX_PRINTS_TRIED = 8;
 
-/** Cache folder: MTG_REPRINT_CACHE_DIR, else the standard cache folder of the OS. */
-export function defaultCacheDir(
-  env: NodeJS.ProcessEnv = process.env,
-  platform: string = process.platform,
-  home: string = os.homedir(),
-): string {
-  if (env['MTG_REPRINT_CACHE_DIR']) return env['MTG_REPRINT_CACHE_DIR'];
-  if (platform === 'win32') {
-    return path.win32.join(env['LOCALAPPDATA'] || path.win32.join(home, 'AppData', 'Local'), APP_NAME, 'cache');
-  }
-  if (platform === 'darwin') return path.posix.join(home, 'Library', 'Caches', APP_NAME);
-  return path.posix.join(env['XDG_CACHE_HOME'] || path.posix.join(home, '.cache'), APP_NAME);
+/**
+ * Folder of everything the app writes (cache and saved lists): MTG_REPRINT_DATA_DIR, else "data"
+ * in `appDir` (the folder of the executable, or the repository root when run from the sources).
+ * Nothing is written elsewhere, so deleting the app's folder removes every trace of it.
+ */
+export function defaultDataDir(appDir: string, env: NodeJS.ProcessEnv = process.env): string {
+  return env['MTG_REPRINT_DATA_DIR'] || path.join(appDir, 'data');
+}
+
+/** Cache folder: MTG_REPRINT_CACHE_DIR, else "cache" in the data folder. */
+export function defaultCacheDir(dataDir: string, env: NodeJS.ProcessEnv = process.env): string {
+  return env['MTG_REPRINT_CACHE_DIR'] || path.join(dataDir, 'cache');
+}
+
+/**
+ * Saved lists folder: MTG_REPRINT_LISTS_DIR, else "lists" in the data folder. It is not inside the
+ * cache folder, so clearing the cache never deletes the lists.
+ */
+export function defaultListsDir(dataDir: string, env: NodeJS.ProcessEnv = process.env): string {
+  return env['MTG_REPRINT_LISTS_DIR'] || path.join(dataDir, 'lists');
 }
