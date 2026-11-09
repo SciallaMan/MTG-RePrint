@@ -1,0 +1,77 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  # Fails fast if the tag does not match the version in every file, or the changelog has no notes for it.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/release-notes.mjs "${{ github.ref_name }}" --check
+
+  # One executable per system. Each job only uploads its file: the release is created once, below.
+  executable:
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: macos-15-intel, name: macos-x64 }
+          - { os: windows-latest, name: windows-x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm run install:all
+      - run: npm test
+      - run: npm run exe
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p package
+          cd dist
+          if [ -f mtg-reprint.exe ]; then
+            7z a ../package/mtg-reprint-${{ matrix.name }}.zip mtg-reprint.exe
+          else
+            tar -czf ../package/mtg-reprint-${{ matrix.name }}.tar.gz mtg-reprint
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mtg-reprint-${{ matrix.name }}
+          path: package/*
+          if-no-files-found: error
+
+  release:
+    needs: executable
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/release-notes.mjs "${{ github.ref_name }}" > release-notes.md
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mtg-reprint-*
+          path: package
+          merge-multiple: true
+      - run: ls -l package
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: MTG RePrint ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: package/*
+          fail_on_unmatched_files: true

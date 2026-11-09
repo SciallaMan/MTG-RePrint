@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories: ["/", "/server", "/web"]
+    schedule:
+      interval: monthly
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node follows the oldest Node version supported (see "engines"): raise it by hand with that
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # a new TypeScript major must match what Angular supports: update it together with Angular
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      # one pull request for all the actions
+      actions:
+        patterns: ["*"]

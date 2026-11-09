@@ -1,0 +1,36 @@
+{
+  "name": "mtg-reprint",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web app that turns a Magic: The Gathering decklist into a print-ready PDF of proxies",
+  "author": "Lorenzo Previtali",
+  "keywords": [
+    "magic-the-gathering",
+    "mtg",
+    "proxy",
+    "proxies",
+    "pdf",
+    "decklist",
+    "scryfall",
+    "gatherer"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.3"
+  },
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix web install",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix server start",
+    "dev:server": "npm --prefix server run dev",
+    "dev:web": "npm --prefix web start",
+    "test": "npm --prefix server test && npm --prefix web test",
+    "typecheck": "npm --prefix server run typecheck",
+    "exe": "node scripts/build-exe.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "postject": "^1.0.0-alpha.6"
+  }
+}
