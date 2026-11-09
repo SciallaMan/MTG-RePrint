@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: 24
       - run: node scripts/release-notes.mjs "${{ github.ref_name }}" > release-notes.md
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: mtg-reprint-*
           path: package
