@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { createHandler, parsePrintRequest, parsePrintsRequest } from '../src/app.ts';
+import { createHandler, parseGathererSearchRequest, parsePrintRequest, parsePrintsRequest } from '../src/app.ts';
 import { gathererLink } from '../src/gatherer.ts';
 import { scryfallUrl } from '../src/scryfall.ts';
 import type { ResolvedCard } from '../src/types.ts';
@@ -80,6 +80,10 @@ test('POST /api/prints and /api/print over HTTP', async () => {
     const list = await post('/api/prints', { name: 'Lightning Bolt', lang: 'it' });
     assert.equal(list.status, 200);
     assert.equal((list.body['prints'] as unknown[]).length, 3);
+    assert.deepEqual(list.body['gathererSearch'], { next: 0, size: 1, left: 1 });
+    const search = await post('/api/prints/gatherer', { name: 'Lightning Bolt', lang: 'it', from: 0 });
+    assert.equal(search.status, 200);
+    assert.deepEqual([search.body['tried'], search.body['gathererSearch']], [1, null]);
 
     const ok = await post('/api/print', { id: ID_OK, lang: 'it' });
     assert.equal(ok.status, 200);
@@ -98,4 +102,53 @@ test('POST /api/prints and /api/print over HTTP', async () => {
     server.closeAllConnections();
     await new Promise<void>((r) => server.close(() => r()));
   }
+});
+
+test('"Search Gatherer" tries, a few at a time, the English prints Scryfall does not list in the language', async () => {
+  // like Savage Beating: Scryfall has only DST in Italian, Gatherer also has CMM #252 in Italian
+  const en = (id: string, set: string, num: string) =>
+    card({ id, lang: 'en', set, collector_number: num, name: 'Savage Beating' });
+  const savage = {
+    it: [card({ id: 'dst-it', set: 'dst', collector_number: '67', name: 'Savage Beating' })],
+    en: [en('cmm-548', 'cmm', '548'), en('cmm-252', 'cmm', '252'), en('dst-en', 'dst', '67'), en('mar', 'mar', '26'), en('omb', 'omb', '26')],
+  };
+  const { resolver, urls } = await rig(
+    searchRoute(savage, (url) => {
+      if (url.host === 'gatherer-static.wizards.com') return png();
+      return url.pathname === '/CMM/it-it/252/savage-beating' ? new Response(pageFor('CMM', 'it-it', '252')) : null;
+    }),
+  );
+
+  const first = await resolver.versionsWithSearch('Savage Beating', 'it');
+  assert.deepEqual(first.prints.map((p) => p.id), ['dst-it', 'cmm-548', 'cmm-252', 'dst-en', 'mar', 'omb']);
+  assert.deepEqual(first.gathererSearch, { next: 0, size: 3, left: 4 }, 'DST is already on Scryfall in Italian');
+  assert.ok(!urls.some((u) => u.includes('/it-it/')), 'nothing is looked up before the user asks');
+
+  const one = await resolver.searchGatherer('Savage Beating', 'it', 0);
+  assert.equal(one.tried, 3);
+  assert.deepEqual(one.prints.map((p) => [p.id, p.lang, p.gathererOnly]), [['cmm-252:it', 'it', true]]);
+  assert.deepEqual(one.gathererSearch, { next: 3, size: 1, left: 1 });
+
+  const two = await resolver.searchGatherer('Savage Beating', 'it', 3);
+  assert.deepEqual([two.tried, two.prints.length, two.gathererSearch], [1, 0, null]);
+  assert.ok(!urls.some((u) => u.includes('/DST/it-it/')));
+
+  assert.equal((await resolver.versionsWithSearch('Savage Beating', 'en')).gathererSearch, null);
+});
+
+test('"Search Gatherer" goes on after the translations the versions already tried', async () => {
+  const prints = {
+    en: ['a', 'b', 'c', 'd'].map((id, i) => card({ id, lang: 'en', set: `s${i}`, collector_number: '1' })),
+  };
+  const { resolver } = await rig(searchRoute(prints, () => null));
+  const { prints: list, gathererSearch } = await resolver.versionsWithSearch('Lightning Bolt', 'it');
+  assert.equal(list.length, 4);
+  assert.deepEqual(gathererSearch, { next: 3, size: 1, left: 1 });
+});
+
+test('request validation for /api/prints/gatherer', () => {
+  assert.deepEqual(parseGathererSearchRequest({ name: 'x', lang: 'it', from: 3 }), { name: 'x', lang: 'it', from: 3 });
+  assert.equal(typeof parseGathererSearchRequest({ name: 'x', lang: 'it', from: -1 }), 'string');
+  assert.equal(typeof parseGathererSearchRequest({ name: 'x', lang: 'it', from: 1.5 }), 'string');
+  assert.equal(typeof parseGathererSearchRequest({ name: 'x', lang: 'it' }), 'string');
 });

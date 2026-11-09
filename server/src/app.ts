@@ -11,6 +11,7 @@ import { LIST_ID } from './lists.ts';
 import type { Lists } from './lists.ts';
 import type {
   DeckEntry,
+  GathererSearchRequest,
   PrintRequest,
   PrintsRequest,
   ResolveEvent,
@@ -179,6 +180,17 @@ export function parsePrintsRequest(body: unknown): PrintsRequest | string {
   return { name: name.trim(), lang };
 }
 
+/** Validate the body of POST /api/prints/gatherer. */
+export function parseGathererSearchRequest(body: unknown): GathererSearchRequest | string {
+  const prints = parsePrintsRequest(body);
+  if (typeof prints === 'string') return prints;
+  const from = (body as Record<string, unknown>)['from'];
+  if (typeof from !== 'number' || !Number.isInteger(from) || from < 0 || from > 10_000) {
+    return '"from" must be a position such as 0 or 3';
+  }
+  return { ...prints, from };
+}
+
 /** Validate the body of POST /api/print. */
 export function parsePrintRequest(body: unknown): PrintRequest | string {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
@@ -192,6 +204,7 @@ export function parsePrintRequest(body: unknown): PrintRequest | string {
 const PARSERS: Record<string, (body: unknown) => object | string> = {
   '/api/resolve': parseResolveRequest,
   '/api/prints': parsePrintsRequest,
+  '/api/prints/gatherer': parseGathererSearchRequest,
   '/api/print': parsePrintRequest,
   '/api/lists/save': parseSaveListRequest,
   '/api/lists/delete': parseListIdRequest,
@@ -254,6 +267,10 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
             return stream(res, request as ResolveRequest);
           case '/api/prints':
             return prints(res, request as PrintsRequest);
+          case '/api/prints/gatherer': {
+            const { name, lang, from } = request as GathererSearchRequest;
+            return sendJson(res, 200, await withPriority('high', () => deps.resolver.searchGatherer(name, lang, from)));
+          }
           case '/api/print':
             return print(res, request as PrintRequest);
           case '/api/lists/save': {
@@ -289,7 +306,7 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
 
   async function prints(res: ServerResponse, request: PrintsRequest): Promise<void> {
     // the user is waiting for this: it goes before the requests of a decklist being resolved
-    sendJson(res, 200, { prints: await withPriority('high', () => deps.resolver.versions(request.name, request.lang)) });
+    sendJson(res, 200, await withPriority('high', () => deps.resolver.versionsWithSearch(request.name, request.lang)));
   }
 
   async function print(res: ServerResponse, request: PrintRequest): Promise<void> {

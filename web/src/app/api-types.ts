@@ -85,6 +85,43 @@ export interface PrintOption {
   gathererOnly?: boolean;
 }
 
+/** Where "Search Gatherer" goes on: the translations Scryfall does not list, a few prints at a time. */
+export interface GathererSearch {
+  /** Position of the next English print to try (`from` of POST /api/prints/gatherer). */
+  next: number;
+  /** How many prints the next search tries. */
+  size: number;
+  /** English prints not tried yet. */
+  left: number;
+}
+
+/** Answer of POST /api/prints. */
+export interface PrintsResponse {
+  prints: PrintOption[];
+  /** Null when there is nothing (more) to look for on Gatherer (English, or every print tried). */
+  gathererSearch: GathererSearch | null;
+}
+
+/**
+ * POST /api/prints/gatherer: look up on Gatherer, in `lang`, the next English prints whose
+ * translation Scryfall does not list (answer: GathererSearchResponse).
+ */
+export interface GathererSearchRequest {
+  /** English name (Scryfall). */
+  name: string;
+  lang: string;
+  /** `GathererSearch.next`. */
+  from: number;
+}
+
+export interface GathererSearchResponse {
+  /** The translations found in this search (Gatherer has their image). */
+  prints: PrintOption[];
+  /** How many prints were tried. */
+  tried: number;
+  gathererSearch: GathererSearch | null;
+}
+
 /** POST /api/print: use this print (answer: { card } or a 404 with { error }). */
 export interface PrintRequest {
   id: string;

@@ -54,6 +54,8 @@ export const MAX_PRINTS_TRIED = 8;
  * language (Gatherer often has translations of Commander products that Scryfall lacks).
  */
 export const MAX_GATHERER_ONLY_TRIED = 3;
+/** English prints tried on Gatherer by each "Search Gatherer" of the versions panel. */
+export const GATHERER_SEARCH_SIZE = 3;
 /** A Gatherer page that does not exist is not asked for again for this long. */
 export const MISSING_PAGE_MAX_AGE_MS = 7 * 86_400_000;
 

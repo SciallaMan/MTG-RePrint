@@ -4,6 +4,7 @@ import { Api } from './api';
 import type {
   Availability,
   DeckEntry,
+  GathererSearch,
   PrintOption,
   ResolveEvent,
   ResolveRequest,
@@ -23,6 +24,12 @@ interface Row {
   /** Versions for the dropdown, once loaded. */
   versions?: PrintOption[];
   versionsState?: 'loading' | 'loaded' | 'error';
+  /** Where "Search Gatherer" goes on, or null when there is nothing (more) to look for. */
+  gathererSearch?: GathererSearch | null;
+  /** A "Search Gatherer" is running. */
+  searching?: boolean;
+  /** Outcome of the last "Search Gatherer". */
+  searchNote?: string;
   /** A version chosen in the dropdown is being fetched. */
   switching?: boolean;
   /** Why the version chosen in the dropdown could not be used. */
@@ -267,10 +274,15 @@ export class App {
   /** Open or close the versions panel of a row; the versions are loaded when it is first opened. */
   protected toggleVersions(index: number, event: MouseEvent): void {
     if (this.openVersions() === index) return this.closeVersions();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.openPanel(index, event.currentTarget as HTMLElement);
+    void this.loadVersions(index);
+  }
+
+  /** Open the versions panel of a row under `anchor`, towards the left when there is no room on the right. */
+  private openPanel(index: number, anchor: HTMLElement): void {
+    const rect = anchor.getBoundingClientRect();
     this.panelOnLeft.set(rect.left + PANEL_WIDTH_PX > document.documentElement.clientWidth - 16);
     this.openVersions.set(index);
-    void this.loadVersions(index);
   }
 
   protected closeVersions(): void {
@@ -289,11 +301,66 @@ export class App {
     const gen = this.generation;
     this.patchRow(index, gen, { versionsState: 'loading' });
     try {
-      const versions = await this.api.prints(row.card?.name ?? row.entry.name, this.resolvedLang);
-      this.patchRow(index, gen, { versions, versionsState: 'loaded' });
+      const { prints, gathererSearch } = await this.api.prints(row.card?.name ?? row.entry.name, this.resolvedLang);
+      this.patchRow(index, gen, { versions: prints, gathererSearch, versionsState: 'loaded' });
     } catch {
       this.patchRow(index, gen, { versionsState: 'error' });
     }
+  }
+
+  /** "Search Gatherer" is offered while there may be translations left to try (never in English). */
+  protected canSearchGatherer(row: Row): boolean {
+    return this.resolvedLang !== 'en' && !(row.versionsState === 'loaded' && !row.gathererSearch);
+  }
+
+  /**
+   * "Search Gatherer" (on the card): try the next few English prints on Gatherer in the list's
+   * language. The versions are loaded first if needed; the panel opens when something is found.
+   */
+  protected async searchGatherer(index: number, event: MouseEvent): Promise<void> {
+    const anchor = event.currentTarget as HTMLElement;
+    if (!this.rows()[index] || this.rows()[index]?.searching) return;
+    const gen = this.generation;
+    this.patchRow(index, gen, { searching: true, searchNote: undefined });
+    await this.loadVersions(index);
+    const row = this.rows()[index];
+    if (!row || gen !== this.generation) return;
+    if (row.versionsState !== 'loaded') {
+      return this.patchRow(index, gen, { searching: false, searchNote: 'Versions not available: try again.' });
+    }
+    const from = row.gathererSearch?.next;
+    if (from === undefined) {
+      return this.patchRow(index, gen, { searching: false, searchNote: 'Nothing more to look for on Gatherer.' });
+    }
+    try {
+      const result = await this.api.searchGatherer(row.card?.name ?? row.entry.name, this.resolvedLang, from);
+      let foundAny = false;
+      this.patchRow(index, gen, (r) => {
+        const known = new Set((r.versions ?? []).map((v) => v.id));
+        const found = result.prints.filter((p) => !known.has(p.id));
+        foundAny = found.length > 0;
+        const tried = `${result.tried} ${result.tried === 1 ? 'print' : 'prints'}`;
+        return {
+          searching: false,
+          versions: [...(r.versions ?? []), ...found],
+          gathererSearch: result.gathererSearch,
+          searchNote: foundAny
+            ? `Found ${found.length} of ${tried} on Gatherer: see the versions.`
+            : `Nothing new on Gatherer in ${tried}.`,
+        };
+      });
+      if (foundAny && gen === this.generation) this.openPanel(index, anchor);
+    } catch (error) {
+      this.patchRow(index, gen, {
+        searching: false,
+        searchNote: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+  }
+
+  /** Name of the language the list was resolved in, for the versions panel. */
+  protected resolvedLangName(): string {
+    return LANGUAGES.find((l) => l.code === this.resolvedLang)?.name ?? this.resolvedLang.toUpperCase();
   }
 
   /** The user picked another version in the panel. */

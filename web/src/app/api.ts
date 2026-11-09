@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import type {
-  PrintOption,
+  GathererSearchResponse,
+  PrintsResponse,
   ResolveEvent,
   ResolveRequest,
   ResolvedCard,
@@ -52,8 +53,13 @@ export class Api {
   }
 
   /** The versions of a card (preferred language, then English) for the dropdown. */
-  async prints(name: string, lang: string): Promise<PrintOption[]> {
-    return (await this.post<{ prints: PrintOption[] }>('/api/prints', { name, lang })).prints;
+  prints(name: string, lang: string): Promise<PrintsResponse> {
+    return this.post('/api/prints', { name, lang });
+  }
+
+  /** Look up on Gatherer the next few translations that Scryfall does not list. */
+  searchGatherer(name: string, lang: string, from: number): Promise<GathererSearchResponse> {
+    return this.post('/api/prints/gatherer', { name, lang, from });
   }
 
   /** Use another print of a card. Fails with the reason when Gatherer has no image for it. */

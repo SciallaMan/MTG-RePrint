@@ -1,7 +1,19 @@
-import { MAX_GATHERER_ONLY_TRIED, MAX_PRINTS_TRIED } from './config.ts';
+import {
+  GATHERER_LANG,
+  GATHERER_SEARCH_SIZE,
+  MAX_GATHERER_ONLY_TRIED,
+  MAX_PRINTS_TRIED,
+  TWO_FACED_LAYOUTS,
+} from './config.ts';
 import type { FoundImages, Gatherer } from './gatherer.ts';
 import type { Scryfall, ScryfallCard } from './scryfall.ts';
-import type { PrintOption } from './types.ts';
+import type { GathererSearch, GathererSearchResponse, PrintOption, PrintsResponse } from './types.ts';
+
+/** Where "Search Gatherer" goes on, after `tried` of `total` candidates; null when none is left. */
+function searchState(total: number, tried: number): GathererSearch | null {
+  const left = total - tried;
+  return left > 0 ? { next: tried, size: Math.min(GATHERER_SEARCH_SIZE, left), left } : null;
+}
 
 export interface Diag {
   /** Ids of the prints found on Scryfall in the preferred language. */
@@ -152,7 +164,63 @@ export class Resolver {
   async versions(name: string, lang: string): Promise<PrintOption[]> {
     const options: PrintOption[] = [];
     const seen = new Set<string>();
-    const option = (card: ScryfallCard): PrintOption => ({
+    for (const lg of lang === 'en' ? ['en'] : [lang, 'en']) {
+      for (const card of await this.scryfall.searchPrints(name, lg)) {
+        if (seen.has(card.id)) continue;
+        seen.add(card.id);
+        options.push(this.option(card));
+      }
+    }
+    if (lang !== 'en' && options.length > 0 && !options.some((o) => o.lang === lang)) {
+      const { prints } = await this.searchGatherer(name, lang, 0, MAX_GATHERER_ONLY_TRIED);
+      options.unshift(...prints);
+    }
+    return options;
+  }
+
+  /**
+   * The versions and where "Search Gatherer" starts: after the translations `versions` already
+   * tried when Scryfall has no print in the language, else from the first candidate.
+   */
+  async versionsWithSearch(name: string, lang: string): Promise<PrintsResponse> {
+    const prints = await this.versions(name, lang);
+    const tried = prints.some((p) => p.lang === lang && !p.gathererOnly) ? 0 : MAX_GATHERER_ONLY_TRIED;
+    const candidates = prints.length > 0 ? await this.translationCandidates(name, lang) : [];
+    return { prints, gathererSearch: searchState(candidates.length, tried) };
+  }
+
+  /**
+   * "Search Gatherer": the translations in `lang` of the next `size` candidates (see
+   * `translationCandidates`) starting at `from`; only those whose image Gatherer has are returned.
+   */
+  async searchGatherer(name: string, lang: string, from: number, size = GATHERER_SEARCH_SIZE): Promise<GathererSearchResponse> {
+    const candidates = await this.translationCandidates(name, lang);
+    const batch = candidates.slice(from, from + size);
+    const prints: PrintOption[] = [];
+    for (const card of batch) {
+      const translated = await this.translation(card, lang);
+      if (translated) prints.push({ ...this.option(translated.card), gathererOnly: true });
+    }
+    return { prints, tried: batch.length, gathererSearch: searchState(candidates.length, from + batch.length) };
+  }
+
+  /**
+   * English prints whose translation in `lang` may exist only on Gatherer: those Scryfall does not
+   * list in `lang` (same set and number), main version of each set first. Single-faced cards only
+   * (`imageInLanguage` cannot read the others).
+   */
+  private async translationCandidates(name: string, lang: string): Promise<ScryfallCard[]> {
+    if (lang === 'en' || !GATHERER_LANG[lang]) return [];
+    const key = (c: ScryfallCard): string => `${c.set}/${c.collector_number}`;
+    const listed = new Set((await this.scryfall.searchPrints(name, lang)).map(key));
+    const english = await this.scryfall.searchPrints(name, 'en');
+    return mainVersionsFirst(english).filter(
+      (c) => !listed.has(key(c)) && !c.name.includes(' // ') && !TWO_FACED_LAYOUTS.has(c.layout ?? ''),
+    );
+  }
+
+  private option(card: ScryfallCard): PrintOption {
+    return {
       id: card.id,
       setCode: card.set,
       setName: card.set_name ?? card.set.toUpperCase(),
@@ -160,24 +228,7 @@ export class Resolver {
       lang: card.lang,
       releasedAt: card.released_at ?? '',
       available: this.gatherer.availability(card.id),
-    });
-    for (const lg of lang === 'en' ? ['en'] : [lang, 'en']) {
-      for (const card of await this.scryfall.searchPrints(name, lg)) {
-        if (seen.has(card.id)) continue;
-        seen.add(card.id);
-        options.push(option(card));
-      }
-    }
-    if (lang !== 'en' && !options.some((o) => o.lang === lang)) {
-      const english = options.length ? await this.scryfall.searchPrints(name, 'en') : [];
-      const translations: PrintOption[] = [];
-      for (const card of mainVersionsFirst(english).slice(0, MAX_GATHERER_ONLY_TRIED)) {
-        const translated = await this.translation(card, lang);
-        if (translated) translations.push({ ...option(translated.card), gathererOnly: true });
-      }
-      options.unshift(...translations);
-    }
-    return options;
+    };
   }
 
   /**
