@@ -28,10 +28,13 @@ before(async () => {
   await cache.writeImage('gatherer_TEST.png', PNG);
   server = http.createServer(createHandler({ resolver, cache, web: new FolderSource(webDir) }));
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  server.unref(); // see `after`: the server alone must not keep the test process alive
   port = (server.address() as AddressInfo).port;
 });
 
-after(() => new Promise<void>((r) => server.close(() => r())));
+// When --test-name-pattern matches no test of this file, `after` runs before `before` has started
+// the server: then there is nothing to close here, and the server is unref'd so the run still ends.
+after(() => new Promise<void>((r) => (server ? server.close(() => r()) : r())));
 
 const call = (pathname: string, init: RequestInit & { host?: string } = {}) =>
   new Promise<{ status: number; body: string; headers: http.IncomingHttpHeaders }>((resolve, reject) => {
