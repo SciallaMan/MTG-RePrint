@@ -6,6 +6,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ### Added
 
+- The versions panel opens upwards when the card is near the bottom of the window.
 - **Search Gatherer** on each card (under "Other versions"): looks up, three prints per click, the translations in the preferred language that Gatherer has and Scryfall does not list (the English prints whose set and number Scryfall has no translation of). What it finds is added to the versions panel, which opens. Useful when the only print Scryfall lists in the language is not the one you want, or shows an English image on Gatherer (e.g. *Savage Beating* in Italian).
 
 ## [0.2.0]

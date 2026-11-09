@@ -54,6 +54,8 @@ interface VersionChoice {
 
 /** Width of the versions panel in px (22rem): it is wider than a card. */
 const PANEL_WIDTH_PX = 352;
+/** Maximum height of the versions panel in px: min(26rem, 60vh), as in app.css. */
+const panelMaxHeightPx = (): number => Math.min(416, window.innerHeight * 0.6);
 
 interface Settings {
   lang: string;
@@ -130,6 +132,10 @@ export class App {
   protected readonly openVersions = signal<number | null>(null);
   /** The panel opens towards the left when there is no room on the right. */
   protected readonly panelOnLeft = signal(false);
+  /** The panel opens upwards when there is no room below (and more room above). */
+  protected readonly panelUp = signal(false);
+  /** Height limit of a panel that opens upwards (the room above its buttons), in px. */
+  protected readonly panelUpMaxHeight = signal<number | null>(null);
   /** Card shown enlarged in the modal. */
   protected readonly zoomed = signal<ResolvedCard | null>(null);
   private readonly zoomDialog = viewChild.required<ElementRef<HTMLDialogElement>>('zoomDialog');
@@ -278,10 +284,17 @@ export class App {
     void this.loadVersions(index);
   }
 
-  /** Open the versions panel of a row under `anchor`, towards the left when there is no room on the right. */
+  /**
+   * Open the versions panel of a row next to its buttons: towards the left when there is no room
+   * on the right, upwards when there is no room below and more room above.
+   */
   private openPanel(index: number, anchor: HTMLElement): void {
-    const rect = anchor.getBoundingClientRect();
+    const rect = (anchor.closest('.versions') ?? anchor).getBoundingClientRect();
     this.panelOnLeft.set(rect.left + PANEL_WIDTH_PX > document.documentElement.clientWidth - 16);
+    const below = window.innerHeight - rect.bottom - 16;
+    const up = below < panelMaxHeightPx() && rect.top > below;
+    this.panelUp.set(up);
+    this.panelUpMaxHeight.set(up ? Math.min(panelMaxHeightPx(), rect.top - 16) : null);
     this.openVersions.set(index);
   }
 

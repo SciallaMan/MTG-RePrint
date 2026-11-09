@@ -195,7 +195,7 @@
                     <span aria-hidden="true">▾</span>
                   </button>
                   @if (openVersions() === rowIndex) {
-                    <div class="versions-panel" [class.left]="panelOnLeft()" role="listbox" aria-label="Versions">
+                    <div class="versions-panel" [class.left]="panelOnLeft()" [class.up]="panelUp()" [style.max-height.px]="panelUpMaxHeight()" role="listbox" aria-label="Versions">
                       @for (group of versionGroups(row); track group.label) {
                         <p class="group" role="presentation">{{ group.label }}</p>
                         @for (option of group.options; track option.id) {
