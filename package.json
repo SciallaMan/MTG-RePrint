@@ -27,7 +27,8 @@
     "dev:web": "npm --prefix web start",
     "test": "npm --prefix server test && npm --prefix web test",
     "typecheck": "npm --prefix server run typecheck",
-    "exe": "node scripts/build-exe.mjs"
+    "exe": "node scripts/build-exe.mjs",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.28.2",

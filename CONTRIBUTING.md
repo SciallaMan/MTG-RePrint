@@ -50,10 +50,12 @@ This project was itself written with the help of an AI assistant (see the [READM
 
 ## Releases
 
-To release a new version, a maintainer:
+To release a new version, a maintainer runs, from an up-to-date `main`:
 
-1. updates the version in the root, `server` and `web` `package.json` files and `VERSION` in `server/src/config.ts`;
-2. moves the "Unreleased" changelog entries under a new `## [x.y.z]` heading;
-3. checks with `node scripts/release-notes.mjs vX.Y.Z --check`, commits, and pushes the tag (`git tag vX.Y.Z && git push origin vX.Y.Z`).
+```
+npm run release -- 0.3.0        # or: patch | minor | major   (add --skip-tests to skip typecheck and tests)
+```
+
+The script (`scripts/release.mjs`) checks that nothing else is uncommitted and that the tag is new, runs typecheck and tests, sets the version in every `package.json`, `package-lock.json` and in `server/src/config.ts`, and moves the "Unreleased" changelog entries under a new `## [x.y.z]` heading. It then waits: write or polish the release notes in `CHANGELOG.md`, press Enter, and it checks them (`scripts/release-notes.mjs`), commits "Release x.y.z", creates the annotated tag `vx.y.z` and pushes `main` and the tag together. If it is stopped, running it again goes on from where it was.
 
 The `release.yml` workflow checks the tag again, builds the executables for Linux, macOS and Windows, and creates one GitHub release with all of them and the changelog section as release notes.
