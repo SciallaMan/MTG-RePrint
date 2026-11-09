@@ -1,0 +1,19 @@
+{
+  "name": "@mtg-reprint/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local server of MTG RePrint: resolves cards (Scryfall + Gatherer) and serves the web app",
+  "author": "Lorenzo Previtali",
+  "license": "MIT",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/index.ts --no-open",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "~6.0.0"
+  }
+}

@@ -1,0 +1,48 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. For security problems, please follow SECURITY.md instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: decklist
+    attributes:
+      label: Decklist lines
+      description: The lines of the decklist that show the problem (not the whole deck, if you can avoid it).
+      render: text
+  - type: textarea
+    id: message
+    attributes:
+      label: Message shown on the card
+      description: The text under the card in the preview, or any error message. A screenshot also helps.
+  - type: input
+    id: language
+    attributes:
+      label: Card language and preferred sets
+      placeholder: Italiano, neo, mh2
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run MTG RePrint?
+      options:
+        - Executable from the releases
+        - From the sources (npm start)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and system
+      description: The version (shown by `--version`), your operating system and browser.
+      placeholder: 0.1.0, Windows 11, Edge
+    validations:
+      required: true

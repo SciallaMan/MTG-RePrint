@@ -1,0 +1,216 @@
+<header class="top">
+  <h1>MTG RePrint</h1>
+  <p class="tag">Paste a decklist, get a print-ready PDF of proxies. Data from Scryfall, images from Gatherer.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <label class="field">
+      <span>Decklist</span>
+      <textarea
+        rows="12"
+        spellcheck="false"
+        placeholder="4 Lightning Bolt&#10;1 Fable of the Mirror-Breaker (NEO) 141&#10;2x Counterspell"
+        [value]="decklist()"
+        (input)="decklist.set(value($event))"
+      ></textarea>
+    </label>
+
+    <div class="options">
+      <label class="field">
+        <span>Card language</span>
+        <select [value]="lang()" (change)="lang.set(value($event))">
+          @for (l of languages; track l.code) {
+            <option [value]="l.code" [selected]="l.code === lang()">{{ l.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Preferred sets</span>
+        <input type="text" placeholder="e.g. neo, mh2" [value]="setsText()" (input)="setsText.set(value($event))">
+      </label>
+      <label class="field">
+        <span>Paper</span>
+        <select [value]="format()" (change)="format.set(value($event) === 'letter' ? 'letter' : 'a4')">
+          <option value="a4" [selected]="format() === 'a4'">A4</option>
+          <option value="letter" [selected]="format() === 'letter'">US Letter</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="skipBasicLands()" (change)="skipBasicLands.set(checked($event))">
+        Skip basic lands
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="cutMarks()" (change)="cutMarks.set(checked($event))">
+        Cut marks
+      </label>
+    </div>
+
+    <div class="actions">
+      @if (resolving()) {
+        <button type="button" class="secondary" (click)="cancel()">Cancel</button>
+      } @else {
+        <button type="button" class="primary" [disabled]="decklist().trim() === ''" (click)="resolve()">Find cards</button>
+      }
+      <button type="button" class="link" (click)="clearCache()">Clear cache</button>
+    </div>
+  </section>
+
+  @if (error(); as message) {
+    <p class="banner error" role="alert">{{ message }}</p>
+  }
+  @if (notice(); as message) {
+    <p class="banner ok" role="status">{{ message }}</p>
+  }
+
+  @if (rows().length > 0) {
+    <section class="result">
+      <div class="summary">
+        <p>
+          @if (resolving()) {
+            Looking up cards… {{ doneCount() }} / {{ rows().length }}
+          } @else {
+            {{ rows().length - failedRows().length }} found, {{ failedRows().length }} not found.
+          }
+          <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
+          <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
+        </p>
+        <button
+          type="button"
+          class="primary"
+          [disabled]="slots().length === 0 || pdfBusy() || resolving()"
+          (click)="downloadPdf()"
+        >
+          @if (pdfBusy()) {
+            Building PDF… {{ pdfProgress()?.done }} / {{ pdfProgress()?.total }}
+          } @else {
+            Download PDF
+          }
+        </button>
+      </div>
+
+      <ul class="grid">
+        @for (row of rows(); track $index; let rowIndex = $index) {
+          <li class="item" [class.missing]="row.state === 'not_found' || row.state === 'error'" [class.zero]="row.entry.qty === 0">
+            <div class="art">
+              @if (row.card; as card) {
+                <button type="button" class="zoom-in" [attr.aria-label]="'Enlarge ' + card.printedName" (click)="openZoom(card)">
+                  @for (file of card.images; track file) {
+                    <img [src]="imageUrl(file)" [alt]="card.printedName" loading="lazy">
+                  }
+                </button>
+              } @else if (row.state === 'pending') {
+                <span class="placeholder">…</span>
+              } @else {
+                <span class="placeholder">?</span>
+              }
+            </div>
+            <div class="meta">
+              @if (row.card?.gathererUrl; as url) {
+                <a class="name" [href]="url" target="_blank" rel="noopener noreferrer" title="Open on Gatherer">{{
+                  row.card.printedName
+                }}</a>
+              } @else {
+                <strong class="name">{{ row.card?.printedName ?? row.entry.name }}</strong>
+              }
+              @if (row.card; as card) {
+                <span class="sub">
+                  {{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}
+                </span>
+                @if (card.requested && !card.requestedSetFound) {
+                  <span class="warn">{{ card.requested }} not available: another print was used</span>
+                }
+                @if (card.note) {
+                  <span class="warn">{{ card.note }}</span>
+                }
+              } @else if (row.message) {
+                <span class="warn">{{ row.message }}</span>
+              }
+              @if (row.state !== 'pending') {
+                <div class="versions">
+                  <button
+                    type="button"
+                    class="versions-toggle"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="openVersions() === rowIndex"
+                    [disabled]="row.switching"
+                    (click)="toggleVersions(rowIndex, $event)"
+                  >
+                    <span>{{ row.switching ? 'Checking Gatherer…' : row.card ? 'Other versions' : 'Choose a version' }}</span>
+                    <span aria-hidden="true">▾</span>
+                  </button>
+                  @if (openVersions() === rowIndex) {
+                    <div class="versions-panel" [class.left]="panelOnLeft()" role="listbox" aria-label="Versions">
+                      @for (group of versionGroups(row); track group.label) {
+                        <p class="group" role="presentation">{{ group.label }}</p>
+                        @for (option of group.options; track option.id) {
+                          <button
+                            type="button"
+                            role="option"
+                            class="option"
+                            [class.current]="option.id === row.card?.scryfallId"
+                            [attr.aria-selected]="option.id === row.card?.scryfallId"
+                            [disabled]="option.disabled"
+                            (click)="chooseVersion(rowIndex, option.id)"
+                          >
+                            <span class="title">{{ option.title }}</span>
+                            <span class="detail">
+                              {{ option.detail }}
+                              @if (option.status) {
+                                <span class="status" [class.bad]="option.disabled">· {{ option.status }}</span>
+                              }
+                            </span>
+                          </button>
+                        }
+                      }
+                      @if (row.versionsState === 'loading') {
+                        <p class="hint">Loading versions…</p>
+                      } @else if (row.versionsState === 'error') {
+                        <p class="hint">
+                          Versions not available.
+                          <button type="button" class="link" (click)="loadVersions(rowIndex)">Try again</button>
+                        </p>
+                      } @else if (row.versionsState === 'loaded' && row.versions?.length === 0) {
+                        <p class="hint">No other versions.</p>
+                      }
+                    </div>
+                  }
+                </div>
+                @if (row.versionError; as message) {
+                  <span class="warn">{{ message }}</span>
+                }
+              }
+              <span class="qty">
+                <button type="button" aria-label="One less" (click)="changeQty(rowIndex, -1)">−</button>
+                <span>{{ row.entry.qty }}×</span>
+                <button type="button" aria-label="One more" (click)="changeQty(rowIndex, 1)">+</button>
+              </span>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</main>
+
+<dialog #zoomDialog class="zoom" aria-label="Enlarged card" (close)="zoomed.set(null)" (click)="onZoomClick($event)">
+  @if (zoomed(); as card) {
+    <div class="zoom-body">
+      <div class="zoom-images">
+        @for (file of card.images; track file) {
+          <img [src]="imageUrl(file)" [alt]="card.printedName">
+        }
+      </div>
+      <p class="zoom-caption">
+        <strong>{{ card.printedName }}</strong>
+        <span>{{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}</span>
+      </p>
+      <button type="button" class="zoom-close" aria-label="Close" (click)="closeZoom()">×</button>
+    </div>
+  }
+</dialog>
+
+<footer>
+  Unofficial fan tool, not affiliated with Wizards of the Coast. For personal use such as playtesting: no selling,
+  no tournaments.
+</footer>
