@@ -32,7 +32,8 @@ const MAX_ENTRIES = 1000;
 const MAX_LIST_NAME = 100;
 const LANG = /^[a-z]{2,3}$/;
 const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** A Scryfall id, or "<id>:<lang>" for a translation that only Gatherer has. */
+const PRINT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[a-z]{2,3})?$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 const NOT_BUILT_PAGE = `<!doctype html><meta charset="utf-8"><title>MTG RePrint</title>
@@ -84,7 +85,7 @@ export function parseEntries(value: unknown): DeckEntry[] | string {
     if (number != null && (typeof number !== 'string' || !/^[\w-]{1,20}$/.test(number))) {
       return `entry ${i + 1}: "number" must be a collector number`;
     }
-    if (printId != null && (typeof printId !== 'string' || !UUID.test(printId))) {
+    if (printId != null && (typeof printId !== 'string' || !PRINT_ID.test(printId))) {
       return `entry ${i + 1}: "printId" must be a Scryfall id`;
     }
     entries.push({
@@ -105,7 +106,7 @@ function parsePins(value: unknown): Record<string, string> | string {
   if (pairs.length > MAX_ENTRIES) return error;
   const pins: Record<string, string> = {};
   for (const [name, id] of pairs) {
-    if (name.trim() === '' || name.length > 200 || typeof id !== 'string' || !UUID.test(id)) return error;
+    if (name.trim() === '' || name.length > 200 || typeof id !== 'string' || !PRINT_ID.test(id)) return error;
     pins[name.trim().toLowerCase()] = id;
   }
   return pins;
@@ -182,7 +183,7 @@ export function parsePrintsRequest(body: unknown): PrintsRequest | string {
 export function parsePrintRequest(body: unknown): PrintRequest | string {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const id = b['id'];
-  if (typeof id !== 'string' || !UUID.test(id)) return '"id" must be a Scryfall id';
+  if (typeof id !== 'string' || !PRINT_ID.test(id)) return '"id" must be a Scryfall id';
   const lang = parseLang(b['lang']);
   if (!lang) return '"lang" must be a language code such as it or en';
   return { id, lang };

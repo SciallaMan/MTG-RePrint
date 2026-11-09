@@ -174,3 +174,9 @@ test('everything is kept in a "data" folder next to the program; lists are not i
   assert.equal(defaultCacheDir(data, { MTG_REPRINT_CACHE_DIR: 'c' }), 'c');
   assert.equal(defaultListsDir(data, { MTG_REPRINT_LISTS_DIR: 'l' }), 'l');
 });
+
+test('translation ids ("<id>:<lang>") are accepted as print ids', () => {
+  const id = `${PINNED}:it`;
+  assert.deepEqual(parseEntries([{ qty: 1, name: 'Bolt', printId: id }]), [{ qty: 1, name: 'Bolt', setCode: null, number: null, printId: id }]);
+  assert.equal(typeof parseEntries([{ qty: 1, name: 'Bolt', printId: `${PINNED}:italian` }]), 'string');
+});

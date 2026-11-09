@@ -60,6 +60,11 @@ a.name:hover, a.name:focus-visible { color: var(--accent); text-decoration: unde
 .sub { color: var(--muted); font-size: .85rem; }
 .warn { color: var(--warn); font-size: .8rem; }
 .pinned { color: var(--accent); font-size: .8rem; }
+.only-gatherer {
+  justify-self: start; width: fit-content; display: inline-flex; gap: .3rem; align-items: center;
+  font-size: .75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: .05rem .5rem .05rem .35rem; cursor: help;
+}
+.info-icon { width: 1.1em; height: 1.1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .qty { display: flex; gap: .5rem; align-items: center; margin-top: .25rem; }
 .qty button { padding: .1rem .6rem; }
 dialog.zoom { padding: 0; border: 0; outline: none; background: transparent; max-width: none; max-height: none; overflow: visible; }

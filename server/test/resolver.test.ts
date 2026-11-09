@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { toResolvedCard } from '../src/deck.ts';
 import { explain } from '../src/resolver.ts';
-import { RID, card, pageFor, png, rig, searchRoute } from './helpers.ts';
+import { RID, card, json, pageFor, png, rig, searchRoute } from './helpers.ts';
 
 const okPage = (set: string, lang: string, num: string) => (url: URL) =>
   url.pathname.startsWith(`/${set}/${lang}/${num}`) ? new Response(pageFor(set, lang, num)) : null;
@@ -81,3 +82,82 @@ test('reports a card nobody has', async () => {
 });
 
 test('RID constant is 64 hex characters', () => assert.match(RID, /^[0-9A-F]{64}$/));
+
+test('a translation that only Gatherer has is used before English (main version of the set first)', async () => {
+  const prints = {
+    en: [
+      card({ id: 'variant', lang: 'en', set: 'm3c', collector_number: '26', name: 'Cayth, Famed Mechanist' }),
+      card({ id: 'main', lang: 'en', set: 'm3c', collector_number: '6', name: 'Cayth, Famed Mechanist' }),
+    ],
+  };
+  const page =
+    '<meta property="og:title" content="Cayth, Celebre Meccanica  MTG - Modern Horizons 3 Commander #6 (Italiano) | Magic"/>' +
+    pageFor('M3C', 'it-it', '6');
+  const { resolver, urls } = await rig(
+    searchRoute(prints, (url) => {
+      if (url.host === 'gatherer-static.wizards.com') return png();
+      return url.pathname === '/M3C/it-it/6/cayth-famed-mechanist' ? new Response(page) : null;
+    }),
+  );
+  const { found } = await resolver.findCard('Cayth, Famed Mechanist', 'it');
+  assert.equal(found?.lang, 'it');
+  assert.equal(found?.card.id, 'main:it');
+  assert.equal(found?.card.printed_name, 'Cayth, Celebre Meccanica');
+  assert.match(found?.source ?? '', /M3C\/it-it\/6 \(not on Scryfall\)/);
+  assert.ok(!urls.some((u) => u.includes('/en-us/')), 'English is not needed');
+});
+
+test('a Gatherer page that does not exist is remembered, not asked for again', async () => {
+  const prints = { en: [card({ id: 'en', lang: 'en', set: 'lea', collector_number: '1' })] };
+  const { resolver, urls } = await rig(
+    searchRoute(prints, (url) =>
+      url.host === 'gatherer-static.wizards.com' ? png() : okPage('LEA', 'en-us', '1')(url),
+    ),
+  );
+  for (let i = 0; i < 2; i++) {
+    const { found } = await resolver.findCard('Lightning Bolt', 'it');
+    assert.equal(found?.lang, 'en');
+  }
+  assert.equal(urls.filter((u) => u.includes('/LEA/it-it/')).length, 1);
+});
+
+test('a translation only Gatherer has is listed in the versions and can be chosen again', async () => {
+  const ID = '44444444-4444-4444-4444-444444444444';
+  const cayth = card({ id: ID, lang: 'en', set: 'm3c', collector_number: '6', name: 'Cayth, Famed Mechanist', set_name: 'Modern Horizons 3 Commander' });
+  const page =
+    '<meta property="og:title" content="Cayth, Celebre Meccanica  MTG - Modern Horizons 3 Commander #6 (Italiano) | Magic"/>' +
+    pageFor('M3C', 'it-it', '6');
+  const { resolver } = await rig((url) => {
+    if (url.host === 'api.scryfall.com' && url.pathname === `/cards/${ID}`) return json(cayth);
+    return searchRoute({ en: [cayth] }, (u) => {
+      if (u.host === 'gatherer-static.wizards.com') return png();
+      if (u.pathname === '/M3C/it-it/6/cayth-famed-mechanist') return new Response(page);
+      return u.pathname.startsWith('/M3C/en-us/6') ? new Response(pageFor('M3C', 'en-us', '6')) : null;
+    })(url);
+  });
+
+  const versions = await resolver.versions('Cayth, Famed Mechanist', 'it');
+  assert.deepEqual(
+    versions.map((v) => [v.id, v.lang, v.available, v.gathererOnly ?? false]),
+    [[`${ID}:it`, 'it', 'full', true], [ID, 'en', null, false]],
+  );
+
+  const english = await resolver.print(ID);
+  assert.equal(english.card?.lang, 'en');
+  const italian = await resolver.print(`${ID}:it`);
+  assert.equal(italian.card?.id, `${ID}:it`);
+  assert.equal(italian.card?.lang, 'it');
+  assert.equal(italian.card?.printed_name, 'Cayth, Celebre Meccanica');
+  assert.equal(italian.images?.files.length, 1);
+
+  const missing = await resolver.print(`${ID}:de`);
+  assert.equal(missing.images, null);
+  assert.match(missing.reasons.join(), /no DE page on Gatherer/);
+});
+
+test('the card sent to the browser says when it is a translation only Gatherer has', () => {
+  const images = { files: ['gatherer_X.png'], source: 's', incomplete: false };
+  const extra = { requestedLang: 'it', requested: null, requestedSetFound: true, langNote: null };
+  assert.equal(toResolvedCard(card({ id: 'a1:it' }), images, extra).gathererOnly, true);
+  assert.equal(toResolvedCard(card({ id: 'a1' }), images, extra).gathererOnly, false);
+});

@@ -347,7 +347,7 @@ export class App {
             id: v.id,
             title: v.setName,
             detail: detail(v),
-            status: v.available ? AVAILABILITY_TEXT[v.available] : '',
+            status: v.gathererOnly ? '✓ only on Gatherer' : v.available ? AVAILABILITY_TEXT[v.available] : '',
             disabled: v.available === 'none' && v.id !== current?.scryfallId,
           })),
       });

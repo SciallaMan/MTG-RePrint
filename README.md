@@ -68,6 +68,7 @@ Card names are English (the Scryfall name), whatever language you want the print
 Below the cards, give the list a name and press **Save as list**. A saved list remembers the cards, their quantities and the versions you picked by hand in the versions panel (marked "Version chosen by hand"); the other cards are looked up again when you open it, with the language and sets of the moment, so they pick up new prints.
 
 - **Open** a list from "Saved lists" above the decklist. You can edit its text, for example to add cards: the versions you picked are kept for the cards that are still there. **Save** updates the list, **Save as new** makes a copy.
+- Some translations exist on Gatherer but not on Scryfall (often Commander products): the app finds them anyway, marks the card "Not on Scryfall", and lists them in the versions panel as "only on Gatherer", so a list can keep them too.
 - If Gatherer no longer has the image of a version you picked, another print is used and the card says so.
 - **Where**: one JSON file per list in `data/lists`, next to the program (see [Where files are kept](#where-files-are-kept)). This is not the cache folder: "Clear cache" never deletes your lists.
 

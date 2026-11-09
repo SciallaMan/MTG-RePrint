@@ -163,6 +163,12 @@
                 <span class="sub">
                   {{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}
                 </span>
+                @if (card.gathererOnly) {
+                  <span
+                    class="only-gatherer"
+                    title="Scryfall does not list this print in this language: its name and image come from the Gatherer page"
+                  ><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall</span>
+                }
                 @if (isPinned(row)) {
                   <span class="pinned">Version chosen by hand</span>
                 }
@@ -253,6 +259,9 @@
       <p class="zoom-caption">
         <strong>{{ card.printedName }}</strong>
         <span>{{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}</span>
+        @if (card.gathererOnly) {
+          <span class="only-gatherer"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall: name and image from Gatherer</span>
+        }
       </p>
       <button type="button" class="zoom-close" aria-label="Close" (click)="closeZoom()">×</button>
     </div>

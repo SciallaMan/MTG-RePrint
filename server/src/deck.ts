@@ -1,6 +1,6 @@
 import { BASIC_LANDS } from './config.ts';
 import { parseDecklist } from './decklist.ts';
-import { explain } from './resolver.ts';
+import { explain, parseTranslationId } from './resolver.ts';
 import type { FoundImages } from './gatherer.ts';
 import { gathererLink } from './gatherer.ts';
 import type { Resolver } from './resolver.ts';
@@ -31,6 +31,7 @@ export function toResolvedCard(
     source: images.source,
     note: [extra.langNote, images.incomplete ? INCOMPLETE_NOTE : null].filter(Boolean).join('; ') || null,
     incomplete: images.incomplete,
+    gathererOnly: parseTranslationId(card.id) !== null,
     gathererUrl: gathererLink(card),
     scryfallUrl: scryfallUrl(card),
   };

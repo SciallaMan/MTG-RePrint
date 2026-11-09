@@ -5,7 +5,7 @@ export interface DeckEntry {
   name: string;
   setCode: string | null;
   number: string | null;
-  /** Scryfall id of a print chosen by hand: used as is when Gatherer still has its images. */
+  /** Id of a print chosen by hand (see `ResolvedCard.scryfallId`): used as is when Gatherer still has its images. */
   printId?: string | null;
 }
 
@@ -26,7 +26,10 @@ export interface ResolveRequest {
 }
 
 export interface ResolvedCard {
-  /** Scryfall id of the print. */
+  /**
+   * Scryfall id of the print, or "<id>:<lang>" for a translation that only Gatherer has: the
+   * Scryfall id of the English print and the language of the Gatherer page.
+   */
   scryfallId: string;
   /** English name (Scryfall). */
   name: string;
@@ -49,6 +52,8 @@ export interface ResolvedCard {
   note: string | null;
   /** Double-faced card whose back face Gatherer does not have: only the front is printed. */
   incomplete: boolean;
+  /** A translation that Scryfall does not list: name and image come from its Gatherer page. */
+  gathererOnly: boolean;
   /** Page of the print on Gatherer, when its language is one Gatherer has. */
   gathererUrl: string | null;
   /** Page of the print on Scryfall. */
@@ -66,7 +71,7 @@ export interface PrintsRequest {
 export type Availability = 'full' | 'front' | 'none';
 
 export interface PrintOption {
-  /** Scryfall id, to pass to POST /api/print. */
+  /** Id of the print (see `ResolvedCard.scryfallId`), to pass to POST /api/print. */
   id: string;
   setCode: string;
   setName: string;
@@ -76,6 +81,8 @@ export interface PrintOption {
   releasedAt: string;
   /** What Gatherer has for this print, once it has been asked (null before). */
   available: Availability | null;
+  /** A translation that Gatherer has and Scryfall does not list. */
+  gathererOnly?: boolean;
 }
 
 /** POST /api/print: use this print (answer: { card } or a 404 with { error }). */

@@ -49,6 +49,13 @@ export const DEFAULT_DELAYS: Delays = { scryfallMs: 600, gathererMs: 250 };
 export const DEFAULT_CACHE_DAYS = 30;
 /** Prints to try, for each search, before moving on. */
 export const MAX_PRINTS_TRIED = 8;
+/**
+ * Prints looked up straight on Gatherer in the preferred language when Scryfall does not list that
+ * language (Gatherer often has translations of Commander products that Scryfall lacks).
+ */
+export const MAX_GATHERER_ONLY_TRIED = 3;
+/** A Gatherer page that does not exist is not asked for again for this long. */
+export const MISSING_PAGE_MAX_AGE_MS = 7 * 86_400_000;
 
 /**
  * Folder of everything the app writes (cache and saved lists): MTG_REPRINT_DATA_DIR, else "data"

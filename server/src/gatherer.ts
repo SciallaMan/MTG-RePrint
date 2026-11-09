@@ -1,5 +1,6 @@
 import {
   GATHERER_LANG,
+  MISSING_PAGE_MAX_AGE_MS,
   TWO_FACED_LAYOUTS,
   gathererLegacyImageUrl,
   gathererPageUrl,
@@ -21,7 +22,31 @@ export interface FoundImages {
 /** A failed download, or a page refusal, is retried after this long (it may have been temporary). */
 export const RETRY_AFTER_MS = 10 * 60_000;
 
-type PageResult = { file: string; label: string } | { file: null; reason: string | null };
+type PageResult = { file: string; label: string; printedName: string | null } | { file: null; reason: string | null };
+
+/** What a Gatherer page gave, remembered on disk for the pages looked up without Scryfall. */
+interface PageMemo {
+  rid: string | null;
+  printedName: string | null;
+}
+
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
+/** Name of the card as printed, from the title of its Gatherer page ("Cayth, Celebre Meccanica  MTG - ..."). */
+export function printedNameFromPage(html: string): string | null {
+  const title = metaContent(html, 'og:title') ?? /<title>([^<]*)<\/title>/i.exec(html)?.[1] ?? '';
+  const name = /^(.+?)\s+MTG\s+-\s/.exec(decodeEntities(title))?.[1]?.trim();
+  return name || null;
+}
 
 export function looksLikeImage(data: Uint8Array): boolean {
   const starts = (...bytes: number[]): boolean => bytes.every((b, i) => data[i] === b);
@@ -133,19 +158,37 @@ export class Gatherer {
     }
   }
 
-  /** New system: read the Gatherer page of the print and download its image. */
-  private async imageFromPage(card: ScryfallCard): Promise<PageResult> {
+  /**
+   * New system: read the Gatherer page of the print (in `language`, a Scryfall code) and download
+   * its image. With `remember`, only the page with the slug is tried and what it gave is kept on
+   * disk (a missing page for MISSING_PAGE_MAX_AGE_MS), for pages that Scryfall does not list.
+   */
+  private async imageFromPage(card: ScryfallCard, language = card.lang, remember = false): Promise<PageResult> {
     if (card.name.includes(' // ') || TWO_FACED_LAYOUTS.has(card.layout ?? '')) {
       return { file: null, reason: null }; // double-faced cards go through the multiverseid
     }
-    const lang = GATHERER_LANG[card.lang];
+    const lang = GATHERER_LANG[language];
     const setCode = card.set.toUpperCase();
     const num = String(card.collector_number ?? '');
     if (!lang || !setCode || !num || this.pagesBlockedUntil > this.now()) return { file: null, reason: null };
     const label = `${setCode}/${lang}/${num}`;
     const base = gathererPageUrl(setCode, lang, num);
     const slug = gathererSlug(card.name);
-    for (const url of slug ? [`${base}/${slug}`, base] : [base]) {
+    const urls = slug ? (remember ? [`${base}/${slug}`] : [`${base}/${slug}`, base]) : [base];
+    for (const url of urls) {
+      const key = this.cache.jsonKey('gatherer-page', { url });
+      let memo: PageMemo | null = null;
+      if (remember) {
+        const entry = await this.cache.readJson(key);
+        const maxAge = (entry?.value as PageMemo | undefined)?.rid ? 0 : MISSING_PAGE_MAX_AGE_MS;
+        if (entry && !this.cache.isStale(entry, key, maxAge)) memo = entry.value as PageMemo;
+      }
+      if (memo && !memo.rid) continue;
+      if (memo?.rid) {
+        const file = await this.imageById(memo.rid);
+        if (file) return { file, label, printedName: memo.printedName };
+        continue;
+      }
       let res: Response;
       try {
         res = await this.http.get(url, 'gatherer', { attempts: 3 });
@@ -158,23 +201,50 @@ export class Gatherer {
       }
       if (!res.ok) {
         await res.arrayBuffer().catch(() => undefined);
+        if (remember && res.status === 404) await this.cache.writeJson(key, { rid: null, printedName: null });
         continue;
       }
-      const rid = imageIdFromPage(await res.text(), setCode, lang, num);
+      const html = await res.text();
+      const rid = imageIdFromPage(html, setCode, lang, num);
+      const printedName = printedNameFromPage(html);
+      if (remember) await this.cache.writeJson(key, { rid, printedName });
       if (!rid) continue;
-      for (const ext of ['png', 'webp']) {
-        const name = `gatherer_${rid.toUpperCase()}.${ext}`;
-        const file = await this.download(gathererStaticUrl(rid.toUpperCase(), ext), name);
-        if (file) return { file, label };
-      }
+      const file = await this.imageById(rid);
+      if (file) return { file, label, printedName };
       return { file: null, reason: `${label}: image ${rid.slice(0, 8)}... could not be downloaded` };
     }
     return { file: null, reason: `${label}: page not found` };
   }
 
+  /** Download the image with this Gatherer image code (PNG, else WebP). */
+  private async imageById(rid: string): Promise<string | null> {
+    for (const ext of ['png', 'webp']) {
+      const name = `gatherer_${rid.toUpperCase()}.${ext}`;
+      const file = await this.download(gathererStaticUrl(rid.toUpperCase(), ext), name);
+      if (file) return file;
+    }
+    return null;
+  }
+
+  /**
+   * The print in another language, looked up straight on Gatherer (same set and number): for
+   * translations that Gatherer has and Scryfall does not list. Single-faced cards only.
+   */
+  async imageInLanguage(card: ScryfallCard, lang: string): Promise<(FoundImages & { printedName: string | null }) | null> {
+    if (!GATHERER_LANG[lang]) return null;
+    const page = await this.imageFromPage(card, lang, true);
+    if (page.file === null) return null;
+    return { files: [page.file], source: `Gatherer page ${page.label} (not on Scryfall)`, incomplete: false, printedName: page.printedName };
+  }
+
   /** What Gatherer has for this print, or null if it has not been looked up yet. */
   availability(id: string): Availability | null {
     return this.known.get(id) ?? null;
+  }
+
+  /** Record what was found for a print looked up another way (a translation only Gatherer has). */
+  setAvailability(id: string, availability: Availability): void {
+    this.known.set(id, availability);
   }
 
   /** Images of a print: the new page first, then the multiverseid. `reasons` collects why a method failed. */
