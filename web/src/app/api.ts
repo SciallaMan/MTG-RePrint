@@ -1,0 +1,74 @@
+import { Injectable } from '@angular/core';
+import type { PrintOption, ResolveEvent, ResolveRequest, ResolvedCard } from './api-types';
+
+/** Talks to the local MTG RePrint server (same origin: it also serves this app). */
+@Injectable({ providedIn: 'root' })
+export class Api {
+  /** Resolve a decklist. `onEvent` is called for each card as soon as the server knows it. */
+  async resolve(request: ResolveRequest, onEvent: (event: ResolveEvent) => void, signal?: AbortSignal): Promise<void> {
+    const res = await fetch('/api/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    });
+    if (!res.ok || !res.body) throw new Error(await this.errorText(res));
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline = buffer.indexOf('\n');
+      while (newline >= 0) {
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (line) onEvent(JSON.parse(line) as ResolveEvent);
+        newline = buffer.indexOf('\n');
+      }
+    }
+    const rest = buffer.trim();
+    if (rest) onEvent(JSON.parse(rest) as ResolveEvent);
+  }
+
+  async imageBytes(file: string): Promise<Uint8Array> {
+    const res = await fetch(`/api/images/${encodeURIComponent(file)}`);
+    if (!res.ok) throw new Error(`Image ${file} is not available (HTTP ${res.status})`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  clearCache(): Promise<{ count: number; bytes: number }> {
+    return this.post('/api/cache/clear', {});
+  }
+
+  /** The versions of a card (preferred language, then English) for the dropdown. */
+  async prints(name: string, lang: string): Promise<PrintOption[]> {
+    return (await this.post<{ prints: PrintOption[] }>('/api/prints', { name, lang })).prints;
+  }
+
+  /** Use another print of a card. Fails with the reason when Gatherer has no image for it. */
+  async print(id: string, lang: string): Promise<ResolvedCard> {
+    return (await this.post<{ card: ResolvedCard }>('/api/print', { id, lang })).card;
+  }
+
+  private async post<T>(url: string, body: unknown): Promise<T> {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(await this.errorText(res));
+    return (await res.json()) as T;
+  }
+
+  private async errorText(res: Response): Promise<string> {
+    try {
+      const body = (await res.json()) as { error?: string };
+      return body.error ?? `HTTP ${res.status}`;
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
+}
