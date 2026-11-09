@@ -4,18 +4,17 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Added
 
-- Saved lists (wishlists): save the cards shown, with their quantities and the versions picked by hand, and open them again later. Stored as files in `data/lists` (`--lists-dir`, `MTG_REPRINT_LISTS_DIR`), so clearing the cache does not delete them.
-- `--data-dir` and `MTG_REPRINT_DATA_DIR`.
-
-### Fixed
-
-- Cards that Gatherer has in the preferred language but Scryfall does not (common for Commander products, e.g. *Cayth, Famed Mechanist* in Italian) were printed in English: their Gatherer page in that language is now tried first, with the main version of the set before its variants. Missing pages are remembered for a week. These translations are listed in the versions panel ("✓ only on Gatherer"), can be picked again after switching to English, are kept by saved lists, and the card is marked "Not on Scryfall".
+- Saved lists (wishlists): below the cards, name the list and save it; open it again from "Saved lists" above the decklist. A list remembers the cards, their quantities and the versions picked by hand (marked "Version chosen by hand"); the other cards are looked up again when it is opened, so they pick up new prints. Editing the text of an open list keeps the versions picked for the cards still in it. **Save** updates the list, **Save as new** makes a copy.
+- Translations that Gatherer has but Scryfall does not list (common for Commander products, e.g. *Cayth, Famed Mechanist* in Italian) are now found: when Scryfall has no print in the preferred language, the Gatherer pages of the English prints are tried in that language (the main version of each set before its variants) before falling back to English. These cards are marked "Not on Scryfall", are listed in the versions panel as "only on Gatherer", and can be kept by saved lists.
+- `--data-dir` and `MTG_REPRINT_DATA_DIR` (where the app keeps its files), `--lists-dir` and `MTG_REPRINT_LISTS_DIR`.
 
 ### Changed
 
-- Everything the app writes now lives in a `data` folder next to the program (`data/cache`, `data/lists`) instead of the system cache folder (AppData, `~/.cache`, `~/Library/Caches`). The old cache folder is no longer used and can be deleted.
+- Everything the app writes now lives in a `data` folder next to the program (`data/cache` and `data/lists`) instead of the system folders (AppData, `~/.cache`, `~/Library/Caches`): deleting the program's folder removes everything. Keep the program in a folder you can write to. The cache of version 0.1.0 is no longer used and can be deleted (`%LOCALAPPDATA%\mtg-reprint` on Windows, `~/Library/Caches/mtg-reprint` on macOS, `~/.cache/mtg-reprint` on Linux).
 
 ## [0.1.0]
 
