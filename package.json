@@ -1,6 +1,6 @@
 {
   "name": "mtg-reprint",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Local web app that turns a Magic: The Gathering decklist into a print-ready PDF of proxies",
   "author": "Lorenzo Previtali",

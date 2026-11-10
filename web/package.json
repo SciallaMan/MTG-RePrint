@@ -1,6 +1,6 @@
 {
   "name": "@mtg-reprint/web",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Web app of MTG RePrint (Angular)",
   "author": "Lorenzo Previtali",
