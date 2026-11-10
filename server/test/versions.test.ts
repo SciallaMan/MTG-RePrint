@@ -35,6 +35,7 @@ test('links to Gatherer (with the slug of the front face) and to Scryfall', () =
   const delver = card({ id: 'd', name: 'Delver of Secrets // Insectile Aberration', set: 'isd', collector_number: '51' });
   assert.equal(gathererLink(delver), 'https://gatherer.wizards.com/ISD/it-it/51/delver-of-secrets');
   assert.equal(gathererLink(card({ id: 'x', lang: 'xx' })), null);
+  assert.equal(gathererLink(card({ id: 'x', name: 'Death or Glory', lang: 'en', set: 'inv', collector_number: '13' })), 'https://gatherer.wizards.com/IN/en-us/13/death-or-glory');
   assert.equal(scryfallUrl(card({ id: 'x', scryfall_uri: 'https://scryfall.com/card/neo/5/it/x?utm_source=api' })), 'https://scryfall.com/card/neo/5/it/x');
   assert.equal(scryfallUrl(card({ id: 'x', set: 'neo', collector_number: '5' })), 'https://scryfall.com/card/neo/5/it');
 });

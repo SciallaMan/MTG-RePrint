@@ -6,7 +6,9 @@ import {
   TWO_FACED_LAYOUTS,
 } from './config.ts';
 import type { FoundImages, Gatherer } from './gatherer.ts';
+import { isNamed } from './scryfall.ts';
 import type { Scryfall, ScryfallCard } from './scryfall.ts';
+import { scryfallSetCode } from './setcodes.ts';
 import type { GathererSearch, GathererSearchResponse, PrintOption, PrintsResponse } from './types.ts';
 
 /** Where "Search Gatherer" goes on, after `tried` of `total` candidates; null when none is left. */
@@ -65,8 +67,11 @@ export class Resolver {
    *  4. the most recent print in English
    * A print counts only if Gatherer really has its image. A double-faced print with only the
    * front image is kept aside and used only if no complete print exists in any language.
+   * Sets may also be given by their Gatherer code ("IN" for Invasion), and the name in the
+   * preferred language ("Morte o Gloria"): the English attempts then use the English name.
    */
-  async findCard(name: string, lang: string, sets: string[] = [], number: string | null = null): Promise<FindResult> {
+  async findCard(name: string, lang: string, requestedSets: string[] = [], number: string | null = null): Promise<FindResult> {
+    const sets = requestedSets.map(scryfallSetCode);
     const langs = lang === 'en' ? [lang] : [lang, 'en'];
     const attempts: Attempt[] = [];
     for (const lg of langs) {
@@ -90,7 +95,8 @@ export class Resolver {
           if (found) return { found, diag };
         }
       }
-      const prints = await this.scryfall.searchPrints(name, attempt.lang, attempt.setCode, attempt.number);
+      const searched = attempt.lang === lang ? name : await this.englishName(name, lang);
+      const prints = await this.scryfall.searchPrints(searched, attempt.lang, attempt.setCode, attempt.number);
       if (attempt.lang === lang) for (const p of prints) diag.prints.add(p.id);
       for (const card of prints.slice(0, MAX_PRINTS_TRIED)) {
         if (tried.has(card.id)) continue;
@@ -105,8 +111,9 @@ export class Resolver {
     }
 
     // last resort: approximate name search (Scryfall data, Gatherer image)
+    const english = await this.englishName(name, lang);
     for (const match of ['exact', 'fuzzy'] as const) {
-      const card = await this.scryfall.named(match, name);
+      const card = await this.scryfall.named(match, english);
       if (!card) continue;
       const images = await this.gatherer.imagesFor(card, []);
       if (!images) continue;
@@ -115,6 +122,16 @@ export class Resolver {
       partial ??= found;
     }
     return { found: partial, diag };
+  }
+
+  /**
+   * The English name of a card written in `lang` ("Morte o Gloria" -> "Death or Glory"), read from
+   * its prints in that language (Scryfall's search also matches printed names); else `name` as is.
+   */
+  private async englishName(name: string, lang: string): Promise<string> {
+    if (lang === 'en') return name;
+    const first = (await this.scryfall.searchPrints(name, lang))[0];
+    return first && !isNamed(first, name) ? first.name : name;
   }
 
   /**
@@ -165,7 +182,8 @@ export class Resolver {
     const options: PrintOption[] = [];
     const seen = new Set<string>();
     for (const lg of lang === 'en' ? ['en'] : [lang, 'en']) {
-      for (const card of await this.scryfall.searchPrints(name, lg)) {
+      const searched = lg === lang ? name : await this.englishName(name, lang);
+      for (const card of await this.scryfall.searchPrints(searched, lg)) {
         if (seen.has(card.id)) continue;
         seen.add(card.id);
         options.push(this.option(card));
@@ -213,7 +231,7 @@ export class Resolver {
     if (lang === 'en' || !GATHERER_LANG[lang]) return [];
     const key = (c: ScryfallCard): string => `${c.set}/${c.collector_number}`;
     const listed = new Set((await this.scryfall.searchPrints(name, lang)).map(key));
-    const english = await this.scryfall.searchPrints(name, 'en');
+    const english = await this.scryfall.searchPrints(await this.englishName(name, lang), 'en');
     return mainVersionsFirst(english).filter(
       (c) => !listed.has(key(c)) && !c.name.includes(' // ') && !TWO_FACED_LAYOUTS.has(c.layout ?? ''),
     );
@@ -272,8 +290,10 @@ export function mainVersionsFirst(prints: ScryfallCard[]): ScryfallCard[] {
 
 /** Sentence explaining why there is no image in the preferred language. */
 export function explain(diag: Diag, lang: string): string {
-  if (diag.prints.size === 0) return `no ${lang.toUpperCase()} print on Scryfall`;
+  const language = lang.toUpperCase();
+  if (diag.prints.size === 0) return `no ${language} print on Scryfall`;
   const reasons = [...new Set(diag.reasons)].slice(0, 4);
   const details = reasons.length ? ` (${reasons.join('; ')})` : '';
-  return `in ${lang.toUpperCase()}: ${diag.prints.size} prints on Scryfall, no image from Gatherer${details}`;
+  const prints = diag.prints.size === 1 ? 'the 1 print' : `the ${diag.prints.size} prints`;
+  return `in ${language}: Gatherer has no image of ${prints} Scryfall lists${details}`;
 }

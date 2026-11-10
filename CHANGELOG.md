@@ -2,6 +2,21 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Set codes can also be written as Gatherer has them for the old sets (up to Odyssey): `(IN)` works like `(INV)` for Invasion, `(1E)` like `(LEA)` for Alpha, and so on.
+
+### Fixed
+
+- A card written by its name in the preferred language (e.g. *Morte o Gloria* in Italian) is now found in English when Gatherer has no image in that language, and its English prints are listed in the versions panel. Before, the English search used the translated name, found nothing and the row stayed "not found".
+
+### Changed
+
+- For the old sets the Gatherer pages are now looked up with Gatherer's set codes (`IN/en-us/13` instead of `INV/en-us/13`, which does not exist), and the card names link there.
+- Clearer explanation when Gatherer has no image in the preferred language, e.g. "in IT: Gatherer has no image of the 1 print Scryfall lists (IN/it-it/13: no page on Gatherer; ...)".
+
 ## [0.3.0]
 
 ### Added

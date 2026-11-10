@@ -7,6 +7,7 @@ import {
   gathererStaticUrl,
 } from './config.ts';
 import type { Cache } from './cache.ts';
+import { gathererSetCode } from './setcodes.ts';
 import type { Http } from './http.ts';
 import type { ScryfallCard } from './scryfall.ts';
 import type { Availability } from './types.ts';
@@ -75,7 +76,7 @@ export function gathererLink(card: ScryfallCard): string | null {
   const num = String(card.collector_number ?? '');
   if (!lang || !card.set || !num) return null;
   const slug = gathererSlug(card.name.split(' // ')[0] ?? card.name);
-  const base = gathererPageUrl(card.set.toUpperCase(), lang, num);
+  const base = gathererPageUrl(gathererSetCode(card.set), lang, num);
   return slug ? `${base}/${slug}` : base;
 }
 
@@ -168,7 +169,7 @@ export class Gatherer {
       return { file: null, reason: null }; // double-faced cards go through the multiverseid
     }
     const lang = GATHERER_LANG[language];
-    const setCode = card.set.toUpperCase();
+    const setCode = card.set ? gathererSetCode(card.set) : '';
     const num = String(card.collector_number ?? '');
     if (!lang || !setCode || !num || this.pagesBlockedUntil > this.now()) return { file: null, reason: null };
     const label = `${setCode}/${lang}/${num}`;
@@ -213,7 +214,7 @@ export class Gatherer {
       if (file) return { file, label, printedName };
       return { file: null, reason: `${label}: image ${rid.slice(0, 8)}... could not be downloaded` };
     }
-    return { file: null, reason: `${label}: page not found` };
+    return { file: null, reason: `${label}: no page on Gatherer` };
   }
 
   /** Download the image with this Gatherer image code (PNG, else WebP). */
@@ -259,7 +260,7 @@ export class Gatherer {
     if (page.file !== null) return { files: [page.file], source: `Gatherer page ${page.label}`, incomplete: false };
     if (page.reason) reasons.push(page.reason);
 
-    const label = `${card.set.toUpperCase()}/${card.collector_number}`;
+    const label = `${gathererSetCode(card.set)}/${card.collector_number}`;
     const ids = this.multiverseIds(card);
     const twoFaced = TWO_FACED_LAYOUTS.has(card.layout ?? '');
     if (ids.length === 0) {

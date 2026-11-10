@@ -32,7 +32,7 @@ test('falls back to English when Gatherer has no image in the preferred language
   );
   const { found, diag } = await resolver.findCard('Lightning Bolt', 'it');
   assert.equal(found?.lang, 'en');
-  assert.match(explain(diag, 'it'), /1 prints on Scryfall, no image from Gatherer/);
+  assert.match(explain(diag, 'it'), /^in IT: Gatherer has no image of the 1 print Scryfall lists \(NEO\/it-it\/1: no page on Gatherer/);
 });
 
 test('the requested set wins over a more recent print', async () => {
@@ -50,6 +50,48 @@ test('the requested set wins over a more recent print', async () => {
   const { found } = await resolver.findCard('Lightning Bolt', 'it', ['neo']);
   assert.equal(found?.card.id, 'wanted');
   assert.equal(found?.requestedSetFound, true);
+});
+
+test('old sets: Gatherer set codes are accepted and used for the Gatherer pages', async () => {
+  const prints = {
+    it: [card({ id: 'it1', set: 'inv', collector_number: '13' })],
+    en: [
+      card({ id: 'list', lang: 'en', set: 'plst', collector_number: 'INV-13' }),
+      card({ id: 'inv', lang: 'en', set: 'inv', collector_number: '13' }),
+    ],
+  };
+  const { resolver, urls } = await rig(
+    searchRoute(prints, (url) =>
+      url.host === 'gatherer.wizards.com' ? okPage('IN', 'en-us', '13')(url) : url.host === 'gatherer-static.wizards.com' ? png() : null,
+    ),
+  );
+  const { found, diag } = await resolver.findCard('Lightning Bolt', 'it', ['in']);
+  assert.equal(found?.card.id, 'inv');
+  assert.equal(found?.requestedSetFound, true);
+  assert.ok(urls.some((u) => u.includes('set%3Ainv')));
+  assert.ok(!urls.some((u) => u.includes('gatherer.wizards.com/INV/')));
+  assert.match(explain(diag, 'it'), /IN\/it-it\/13: no page on Gatherer/);
+});
+
+test('a name written in the preferred language falls back to the English prints of that card', async () => {
+  const it = card({ id: 'it1', name: 'Death or Glory', printed_name: 'Morte o Gloria', set: 'inv', collector_number: '13' });
+  const en = card({ id: 'en1', name: 'Death or Glory', lang: 'en', set: 'inv', collector_number: '13' });
+  const { resolver } = await rig((url) => {
+    if (url.host === 'api.scryfall.com' && url.pathname === '/cards/search') {
+      const q = url.searchParams.get('q') ?? '';
+      // Scryfall matches printed names too, but only in their language
+      if (q.includes('lang:it') && /"(Morte o Gloria|Death or Glory)"/.test(q)) return json({ data: [it] });
+      if (q.includes('lang:en') && q.includes('"Death or Glory"')) return json({ data: [en] });
+      return null;
+    }
+    if (url.host === 'gatherer-static.wizards.com') return png();
+    return url.host === 'gatherer.wizards.com' ? okPage('IN', 'en-us', '13')(url) : null;
+  });
+  const { found, diag } = await resolver.findCard('Morte o Gloria', 'it');
+  assert.equal(found?.card.id, 'en1');
+  assert.match(explain(diag, 'it'), /IN\/it-it\/13: no page on Gatherer/);
+  const versions = await resolver.versions('Morte o Gloria', 'it');
+  assert.deepEqual(versions.map((v) => v.id), ['it1', 'en1']);
 });
 
 test('promos are tried after regular prints', async () => {
@@ -108,17 +150,17 @@ test('a translation that only Gatherer has is used before English (main version 
 });
 
 test('a Gatherer page that does not exist is remembered, not asked for again', async () => {
-  const prints = { en: [card({ id: 'en', lang: 'en', set: 'lea', collector_number: '1' })] };
+  const prints = { en: [card({ id: 'en', lang: 'en', set: 'm10', collector_number: '1' })] };
   const { resolver, urls } = await rig(
     searchRoute(prints, (url) =>
-      url.host === 'gatherer-static.wizards.com' ? png() : okPage('LEA', 'en-us', '1')(url),
+      url.host === 'gatherer-static.wizards.com' ? png() : okPage('M10', 'en-us', '1')(url),
     ),
   );
   for (let i = 0; i < 2; i++) {
     const { found } = await resolver.findCard('Lightning Bolt', 'it');
     assert.equal(found?.lang, 'en');
   }
-  assert.equal(urls.filter((u) => u.includes('/LEA/it-it/')).length, 1);
+  assert.equal(urls.filter((u) => u.includes('/M10/it-it/')).length, 1);
 });
 
 test('a translation only Gatherer has is listed in the versions and can be chosen again', async () => {
