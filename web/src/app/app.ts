@@ -74,18 +74,19 @@ const STORAGE_KEY = 'mtg-reprint.settings';
 const UPDATE_DISMISSED_KEY = 'mtg-reprint.update-dismissed';
 const DEFAULTS: Settings = { lang: 'it', sets: '', skipBasicLands: false, format: 'a4', cutMarks: true };
 
-export const LANGUAGES: readonly { code: string; name: string }[] = [
-  { code: 'it', name: 'Italiano' },
-  { code: 'en', name: 'English' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'es', name: 'Español' },
-  { code: 'fr', name: 'Français' },
-  { code: 'pt', name: 'Português' },
-  { code: 'ja', name: '日本語' },
-  { code: 'ko', name: '한국어' },
-  { code: 'ru', name: 'Русский' },
-  { code: 'zhs', name: '简体中文' },
-  { code: 'zht', name: '繁體中文' },
+/** `name` as the language calls itself (menus, labels); `english` inside the English UI sentences. */
+export const LANGUAGES: readonly { code: string; name: string; english: string }[] = [
+  { code: 'it', name: 'Italiano', english: 'Italian' },
+  { code: 'en', name: 'English', english: 'English' },
+  { code: 'de', name: 'Deutsch', english: 'German' },
+  { code: 'es', name: 'Español', english: 'Spanish' },
+  { code: 'fr', name: 'Français', english: 'French' },
+  { code: 'pt', name: 'Português', english: 'Portuguese' },
+  { code: 'ja', name: '日本語', english: 'Japanese' },
+  { code: 'ko', name: '한국어', english: 'Korean' },
+  { code: 'ru', name: 'Русский', english: 'Russian' },
+  { code: 'zhs', name: '简体中文', english: 'Simplified Chinese' },
+  { code: 'zht', name: '繁體中文', english: 'Traditional Chinese' },
 ];
 
 function loadSettings(): Settings {
@@ -411,9 +412,9 @@ export class App {
     }
   }
 
-  /** Name of the language the list was resolved in, for the versions panel. */
+  /** English name of the language the list was resolved in, for the English sentences of the UI. */
   protected resolvedLangName(): string {
-    return LANGUAGES.find((l) => l.code === this.resolvedLang)?.name ?? this.resolvedLang.toUpperCase();
+    return LANGUAGES.find((l) => l.code === this.resolvedLang)?.english ?? this.resolvedLang.toUpperCase();
   }
 
   /** The user picked another version in the panel. */
