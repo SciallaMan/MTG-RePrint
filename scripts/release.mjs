@@ -4,8 +4,10 @@
 //   npm run release -- minor --skip-tests
 // 1. checks: on main, nothing else uncommitted, the tag does not exist yet; runs typecheck and tests
 // 2. sets the version in the package.json / package-lock.json files and in server/src/config.ts
-// 3. moves the "Unreleased" changelog entries under "## [x.y.z]" (the notes are written by you)
-// 4. waits for Enter, checks the notes, then commits "Release x.y.z", tags vx.y.z and pushes both
+// 3. renames "## [Unreleased]" in CHANGELOG.md to "## [x.y.z]" (no empty "Unreleased" is left);
+//    without it, adds an empty "## [x.y.z]" and waits for the notes to be written there
+// 4. shows the notes and waits for Enter, checks them again, then commits "Release x.y.z",
+//    tags vx.y.z and pushes both
 // Running it again after an interruption picks up where it stopped.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -125,51 +127,64 @@ const config = read(CONFIG);
 if (!/export const VERSION = '[^']*';/.test(config)) fail(`no "export const VERSION = '...'" in ${CONFIG}`);
 write(CONFIG, config.replace(/export const VERSION = '[^']*';/, `export const VERSION = '${version}';`));
 
-// ---------- changelog: "Unreleased" becomes "## [x.y.z]", with a new empty "Unreleased" above
+// ---------- changelog: "## [Unreleased]" becomes "## [x.y.z]" (no empty "Unreleased" is left)
 
 const eol = read(CHANGELOG).includes('\r\n') ? '\r\n' : '\n';
 const lines = read(CHANGELOG).replace(/\r\n/g, '\n').split('\n');
 if (!lines.some((l) => l.startsWith(`## [${version}]`))) {
   const unreleased = lines.findIndex((l) => /^## \[Unreleased\]/i.test(l));
-  const firstRelease = lines.findIndex((l) => l.startsWith('## [') && !/^## \[Unreleased\]/i.test(l));
   if (unreleased >= 0) {
-    lines.splice(unreleased, 1, '## [Unreleased]', '', `## [${version}]`);
+    lines[unreleased] = `## [${version}]`;
   } else {
-    const at = firstRelease >= 0 ? firstRelease : lines.length;
-    lines.splice(at, 0, '## [Unreleased]', '', `## [${version}]`, '', '');
+    // no notes written during development: an empty section, to be filled below
+    const firstRelease = lines.findIndex((l) => l.startsWith('## ['));
+    lines.splice(firstRelease >= 0 ? firstRelease : lines.length, 0, `## [${version}]`, '', '');
   }
   write(CHANGELOG, lines.join(eol));
 }
 
 // ---------- notes, then commit, tag and push
 
-console.log(`
-Version ${version} is set everywhere and CHANGELOG.md has a "## [${version}]" section.
-Write the release notes there (Added / Changed / Fixed), save the file, then:
-  Enter   commit "Release ${version}", tag ${tag} and push ${BRANCH} and the tag to ${REMOTE}
-  Ctrl+C  stop here (run the script again later, or undo with: git checkout -- ${FILES.join(' ')})`);
+const checkNotes = () => run('node', ['scripts/release-notes.mjs', tag, '--check'], { quiet: true, allowFail: true });
+const undo = `git checkout -- ${FILES.join(' ')}`;
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
-let notesReady = false;
+let confirmed = false;
 rl.on('SIGINT', () => {
   console.log('\nStopped: nothing was committed.');
   process.exit(130);
 });
 // without this, a closed input (no terminal) would leave the question pending forever
 rl.on('close', () => {
-  if (!notesReady) fail('input closed before the notes were ready: nothing was committed (run the script again to go on)');
+  if (!confirmed) fail('input closed before the release was confirmed: nothing was committed (run the script again to go on)');
 });
-for (;;) {
-  await rl.question('\nPress Enter when the notes are ready... ');
-  const check = run('node', ['scripts/release-notes.mjs', tag, '--check'], { quiet: true, allowFail: true });
-  if (check.ok) break;
-  console.log(check.err || check.out);
+
+let check = checkNotes();
+if (!check.ok) {
+  console.log(`
+The "## [${version}]" section of CHANGELOG.md has no notes yet. Write them there
+(Added / Changed / Fixed) and save the file. Ctrl+C stops here (run the script again later,
+or undo with: ${undo}).`);
+  while (!check.ok) {
+    console.log(check.err || check.out);
+    await rl.question('\nPress Enter when the notes are ready... ');
+    check = checkNotes();
+  }
 }
-notesReady = true;
-rl.close();
 
 const section = run('node', ['scripts/release-notes.mjs', tag], { quiet: true }).out.split('\n---\n')[0].trim();
-console.log(`\nRelease notes of ${tag}:\n\n${section}\n`);
+console.log(`\nVersion ${version} is set everywhere. Release notes of ${tag}:\n\n${section}\n`);
+console.log('Changed files (review them now, e.g. with git diff; edits made before Enter are included):');
+run('git', ['diff', '--stat', '--', ...FILES]);
+console.log('');
+await rl.question(
+  `Enter   commit "Release ${version}", tag ${tag} and push ${BRANCH} and the tag to ${REMOTE}\n` +
+    `Ctrl+C  stop here (run the script again later, or undo with: ${undo})\n`,
+);
+check = checkNotes(); // CHANGELOG.md may have been edited while waiting
+if (!check.ok) fail(`${check.err || check.out}\nnothing was committed: fix the notes and run the script again`);
+confirmed = true;
+rl.close();
 
 git('add', '--', ...FILES);
 git('commit', '-m', `Release ${version}`);

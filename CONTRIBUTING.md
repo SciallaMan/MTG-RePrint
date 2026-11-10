@@ -38,7 +38,7 @@ Some guidelines:
 - **Be polite to Scryfall and Gatherer**: every request goes through the `Http` class in `server/src/http.ts`, which sends one request at a time per host with a pause between them. Do not bypass it, do not lower the pauses, and keep caching what is downloaded. See the [Scryfall API guidelines](https://scryfall.com/docs/api).
 - **No card images or card data in the repository**: tests use tiny made-up images and data.
 - **Style**: follow the code around you. TypeScript is strict; prefer small functions with a short comment explaining *why* rather than *what*. An [`.editorconfig`](.editorconfig) sets indentation and line endings.
-- Update [CHANGELOG.md](CHANGELOG.md) (section "Unreleased") when the change is visible to users.
+- Update [CHANGELOG.md](CHANGELOG.md) when the change is visible to users, under a `## [Unreleased]` heading above the last release (add it if it is not there).
 
 ## AI-assisted contributions
 
@@ -56,6 +56,6 @@ To release a new version, a maintainer runs, from an up-to-date `main`:
 npm run release -- 0.3.0        # or: patch | minor | major   (add --skip-tests to skip typecheck and tests)
 ```
 
-The script (`scripts/release.mjs`) checks that nothing else is uncommitted and that the tag is new, runs typecheck and tests, sets the version in every `package.json`, `package-lock.json` and in `server/src/config.ts`, and moves the "Unreleased" changelog entries under a new `## [x.y.z]` heading. It then waits: write or polish the release notes in `CHANGELOG.md`, press Enter, and it checks them (`scripts/release-notes.mjs`), commits "Release x.y.z", creates the annotated tag `vx.y.z` and pushes `main` and the tag together. If it is stopped, running it again goes on from where it was.
+The script (`scripts/release.mjs`) checks that nothing else is uncommitted and that the tag is new, runs typecheck and tests, sets the version in every `package.json`, `package-lock.json` and in `server/src/config.ts`, and renames `## [Unreleased]` in the changelog to `## [x.y.z]` (no empty "Unreleased" is left; without one it adds an empty `## [x.y.z]` and waits for you to write the notes there). It then shows the notes, checked by `scripts/release-notes.mjs`, and waits: press Enter and it checks them again, commits "Release x.y.z", creates the annotated tag `vx.y.z` and pushes `main` and the tag together. If it is stopped, running it again goes on from where it was.
 
 The `release.yml` workflow checks the tag again, builds the executables for Linux, macOS and Windows, and creates one GitHub release with all of them and the changelog section as release notes.
