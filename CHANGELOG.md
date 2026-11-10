@@ -7,6 +7,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 ### Added
 
 - Set codes can also be written as Gatherer has them for the old sets (up to Odyssey): `(IN)` works like `(INV)` for Invasion, `(1E)` like `(LEA)` for Alpha, and so on.
+- The PDF is named after the list: the name of the open list (or the one typed to save it) is the file name and the document title. Without a name it is still `proxies.pdf`.
 
 ### Fixed
 

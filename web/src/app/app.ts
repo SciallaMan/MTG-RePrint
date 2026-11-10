@@ -11,7 +11,7 @@ import type {
   ResolvedCard,
   WishlistSummary,
 } from './api-types';
-import { PER_PAGE, buildPdf } from './pdf/pdf';
+import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
 import { pinsOf, toDecklist } from './wishlist';
@@ -536,10 +536,13 @@ export class App {
     this.notice.set(null);
     this.pdfBusy.set(true);
     this.pdfProgress.set({ done: 0, total: this.slots().length });
+    // named after the list: the one open, or the name typed for saving it
+    const listName = this.listName().trim() || this.currentList()?.name || '';
     try {
       const bytes = await buildPdf(this.slots(), {
         format: this.format(),
         cutMarks: this.cutMarks(),
+        title: listName,
         loadImage: (file) => this.api.imageBytes(file),
         toPng: webpToPng,
         onProgress: (done, total) => this.pdfProgress.set({ done, total }),
@@ -547,7 +550,7 @@ export class App {
       const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'proxies.pdf';
+      link.download = pdfFileName(listName);
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       this.notice.set('PDF created. Print it at 100% ("actual size"), not "fit to page".');

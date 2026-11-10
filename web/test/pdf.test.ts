@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 import { test } from 'node:test';
 import { PDFDocument } from 'pdf-lib';
-import { CARD_H_MM, CARD_W_MM, PAGE_MM, buildPdf, cutMarks, gridMargins, layout, mmToPt, pageCount } from '../src/app/pdf/pdf.ts';
+import { CARD_H_MM, CARD_W_MM, PAGE_MM, buildPdf, cutMarks, gridMargins, layout, mmToPt, pageCount, pdfFileName } from '../src/app/pdf/pdf.ts';
 
 function crc32(buf: Uint8Array): number {
   let c = ~0;
@@ -93,6 +93,22 @@ test('WebP goes through the converter, unknown formats fail clearly', async () =
   assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1);
   await assert.rejects(buildPdf([{ image: 'a.webp' }], { format: 'a4', cutMarks: false, loadImage: async () => webp }), /Unsupported/);
   await assert.rejects(buildPdf([], { format: 'a4', cutMarks: false, loadImage: async () => webp }), /nothing to print/);
+});
+
+test('the PDF is named after the list: title and file name', async () => {
+  const opts = { format: 'a4' as const, cutMarks: false, loadImage: async () => makePng() };
+  const named = await PDFDocument.load(await buildPdf([{ image: 'a.png' }], { ...opts, title: ' Mono Red ' }));
+  assert.equal(named.getTitle(), 'Mono Red');
+  const untitled = await PDFDocument.load(await buildPdf([{ image: 'a.png' }], { ...opts, title: '  ' }));
+  assert.equal(untitled.getTitle(), undefined);
+
+  assert.equal(pdfFileName('Mono Red'), 'Mono Red.pdf');
+  assert.equal(pdfFileName('Wishlist: 2026/11 "Commander"?'), 'Wishlist 2026 11 Commander.pdf');
+  assert.equal(pdfFileName('a\\b|c*d<e>f\u0007g'), 'a b c d e f g.pdf');
+  assert.equal(pdfFileName('...'), 'proxies.pdf');
+  assert.equal(pdfFileName(''), 'proxies.pdf');
+  assert.equal(pdfFileName(null), 'proxies.pdf');
+  assert.equal(pdfFileName('x'.repeat(150)), `${'x'.repeat(100)}.pdf`);
 });
 
 test('card size constants', () => assert.deepEqual([CARD_W_MM, CARD_H_MM], [63, 88]));

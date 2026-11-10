@@ -88,6 +88,8 @@ export function cutMarks(format: PageFormat, lengthMm = 4): Segment[] {
 export interface PdfOptions {
   format: PageFormat;
   cutMarks: boolean;
+  /** Title of the document (shown by PDF viewers instead of the file name), e.g. the list name. */
+  title?: string;
   /** Bytes of an image from the cache. */
   loadImage: (file: string) => Promise<Uint8Array>;
   /** Converts an image pdf-lib cannot read (WebP) to PNG. In the browser this uses a canvas. */
@@ -105,12 +107,29 @@ async function embed(doc: PDFDocument, data: Uint8Array, toPng: PdfOptions['toPn
   return doc.embedPng(await toPng(data));
 }
 
+/**
+ * File name of the PDF for a list name: the characters that are not allowed in file names
+ * (Windows is the strictest) become spaces; without a usable name it is "proxies.pdf".
+ */
+export function pdfFileName(name: string | null | undefined): string {
+  const base = (name ?? '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\.+|\.+$/g, '')
+    .slice(0, 100)
+    .trim();
+  return `${base || 'proxies'}.pdf`;
+}
+
 /** Build the PDF: 3x3 cards of 63 x 88 mm per page, optionally with cut marks. */
 export async function buildPdf(slots: readonly Slot[], opts: PdfOptions): Promise<Uint8Array> {
   if (slots.length === 0) throw new Error('There is nothing to print');
   const doc = await PDFDocument.create();
   doc.setCreator('MTG RePrint');
   doc.setProducer('MTG RePrint');
+  const title = opts.title?.trim();
+  if (title) doc.setTitle(title, { showInWindowTitleBar: true });
   const page = PAGE_MM[opts.format];
   const pageW = mmToPt(page.w);
   const pageH = mmToPt(page.h);
