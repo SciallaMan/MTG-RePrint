@@ -17,6 +17,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 - For the old sets the Gatherer pages are now looked up with Gatherer's set codes (`IN/en-us/13` instead of `INV/en-us/13`, which does not exist), and the card names link there.
 - Clearer explanation when Gatherer has no image in the preferred language, e.g. "in IT: Gatherer has no image of the 1 print Scryfall lists (IN/it-it/13: no page on Gatherer; ...)".
+- **Search Gatherer** is now a small link under **Other versions**, named after the language ("Find more Italian versions on Gatherer"); how many prints are left to try is in its tooltip.
 
 ## [0.3.0]
 

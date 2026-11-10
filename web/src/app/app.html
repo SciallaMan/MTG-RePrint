@@ -233,19 +233,12 @@
                   @if (canSearchGatherer(row)) {
                     <button
                       type="button"
-                      class="search-gatherer"
+                      class="link search-gatherer"
                       [disabled]="row.searching || row.switching"
-                      [title]="'Look on Gatherer for ' + resolvedLangName() + ' versions that Scryfall does not list, a few English prints at a time'"
+                      [title]="searchGathererTitle(row)"
                       (click)="searchGatherer(rowIndex, $event)"
                     >
-                      @if (row.searching) {
-                        Searching Gatherer…
-                      } @else {
-                        Search Gatherer
-                        @if (row.gathererSearch; as search) {
-                          <span class="muted">({{ search.size }} of {{ search.left }} left)</span>
-                        }
-                      }
+                      {{ row.searching ? 'Searching Gatherer…' : 'Find more ' + resolvedLangName() + ' versions on Gatherer' }}
                     </button>
                   }
                 </div>

@@ -326,6 +326,14 @@ export class App {
     return this.resolvedLang !== 'en' && !(row.versionsState === 'loaded' && !row.gathererSearch);
   }
 
+  /** Tooltip of the "Find more versions on Gatherer" link: what it does and how much is left. */
+  protected searchGathererTitle(row: Row): string {
+    const what = `Looks on Gatherer for ${this.resolvedLangName()} versions that Scryfall does not list`;
+    const search = row.gathererSearch;
+    if (!search) return `${what}, a few English prints at a time.`;
+    return `${what}: tries ${search.size} of the ${search.left} English prints left.`;
+  }
+
   /**
    * "Search Gatherer" (on the card): try the next few English prints on Gatherer in the list's
    * language. The versions are loaded first if needed; the panel opens when something is found.

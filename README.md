@@ -63,7 +63,7 @@ One card per line. Exports from Moxfield and Archidekt work as they are.
 
 Card names are English (the Scryfall name), whatever language you want the printed card to be in.
 
-Each card has a versions panel (**Other versions**) to pick another print. Gatherer often has translations that Scryfall does not list: **Search Gatherer**, under **Other versions** on each card, looks for them three prints at a time and adds what it finds to the panel.
+Each card has a versions panel (**Other versions**) to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under **Other versions** on each card, looks for them three prints at a time and adds what it finds to the panel.
 
 ## Saved lists
 
