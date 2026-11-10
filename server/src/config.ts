@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 export const APP_NAME = 'mtg-reprint';
 export const DEFAULT_PORT = 3210;
 
