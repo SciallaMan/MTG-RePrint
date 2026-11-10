@@ -1,0 +1,3 @@
+- update automatici in modo da non perdere la cartella /data ogni volta che si aggiorna
+- nome e titolo del pdf uguale al nome della lista, se c'è
+- la ricerca manuale la farei come scritta cliccabile, occupa un sacco di spazio così, e metterei una scritta più intuitivo
