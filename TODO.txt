@@ -1,3 +1,2 @@
 1 update automatici in modo da non perdere la cartella /data ogni volta che si aggiorna
-2 nome e titolo del pdf uguale al nome della lista, se c'è
-3 la ricerca manuale la farei come scritta cliccabile, occupa un sacco di spazio così, e metterei una scritta più intuitiva
+2 in quali casi serviva la ricerca manuale con tasto? valutiamo se si può togliere altrimenti la farei come scritta cliccabile, occupa un sacco di spazio così, magari con una scritta più intuitiva
