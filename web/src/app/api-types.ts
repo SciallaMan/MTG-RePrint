@@ -163,3 +163,15 @@ export interface SaveWishlistRequest {
   sets: string[];
   entries: DeckEntry[];
 }
+
+/** GET /api/update: whether a newer release is published (never fails: unknown means no update). */
+export interface UpdateInfo {
+  /** Version of the running program. */
+  current: string;
+  /** Latest published version, or null if unknown (check turned off, offline, no release yet). */
+  latest: string | null;
+  /** Page of the latest release, where it can be downloaded. */
+  url: string | null;
+  /** True when `latest` is newer than `current`. */
+  newer: boolean;
+}

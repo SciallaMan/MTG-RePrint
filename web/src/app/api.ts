@@ -6,6 +6,7 @@ import type {
   ResolveRequest,
   ResolvedCard,
   SaveWishlistRequest,
+  UpdateInfo,
   Wishlist,
   WishlistSummary,
 } from './api-types';
@@ -65,6 +66,13 @@ export class Api {
   /** Use another print of a card. Fails with the reason when Gatherer has no image for it. */
   async print(id: string, lang: string): Promise<ResolvedCard> {
     return (await this.post<{ card: ResolvedCard }>('/api/print', { id, lang })).card;
+  }
+
+  /** Whether a newer version of the app is published. */
+  async update(): Promise<UpdateInfo> {
+    const res = await fetch('/api/update');
+    if (!res.ok) throw new Error(await this.errorText(res));
+    return (await res.json()) as UpdateInfo;
   }
 
   /** Saved lists, most recently saved first. */

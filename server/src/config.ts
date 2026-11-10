@@ -46,6 +46,12 @@ export interface Delays {
 }
 export const DEFAULT_DELAYS: Delays = { scryfallMs: 600, gathererMs: 250 };
 
+/** Latest release of the app on GitHub (the "new version" notice). */
+export const RELEASES_REPO = 'SciallaMan/MTG-RePrint';
+export const LATEST_RELEASE_API = `https://api.github.com/repos/${RELEASES_REPO}/releases/latest`;
+/** Pause between two requests to GitHub (in practice there is one each time the program starts). */
+export const GITHUB_DELAY_MS = 1000;
+
 export const DEFAULT_CACHE_DAYS = 30;
 /** Prints to try, for each search, before moving on. */
 export const MAX_PRINTS_TRIED = 8;

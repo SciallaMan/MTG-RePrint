@@ -25,6 +25,7 @@ import { Scryfall } from './scryfall.ts';
 import { isSea } from 'node:sea';
 import { embeddedWebApp } from './sea.ts';
 import { FolderSource } from './static.ts';
+import { Updates } from './updates.ts';
 import type { StaticSource } from './static.ts';
 
 const HELP = `MTG RePrint ${VERSION}: turn a decklist into a printable PDF of proxies.
@@ -40,11 +41,12 @@ Usage: ${isSea() ? 'mtg-reprint' : 'node src/index.ts'} [options]
       --refresh         ignore cached Scryfall searches for this run
       --clear-cache     delete the cache and exit
       --web-dir <dir>   folder with the built web app
+      --no-update-check do not ask GitHub at start whether a new version is out
   -v, --version         show the version
   -h, --help            show this help
 
 Environment: MTG_REPRINT_PORT, MTG_REPRINT_DATA_DIR, MTG_REPRINT_CACHE_DIR, MTG_REPRINT_LISTS_DIR,
-MTG_REPRINT_USER_AGENT.
+MTG_REPRINT_USER_AGENT, MTG_REPRINT_NO_UPDATE_CHECK.
 Unofficial fan tool, not affiliated with Wizards of the Coast or Scryfall. See README.md.`;
 
 function openBrowser(url: string): void {
@@ -130,6 +132,7 @@ async function main(): Promise<void> {
       refresh: { type: 'boolean' },
       'clear-cache': { type: 'boolean' },
       'web-dir': { type: 'string' },
+      'no-update-check': { type: 'boolean' },
       version: { type: 'boolean', short: 'v' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -162,7 +165,12 @@ async function main(): Promise<void> {
 
   const web = chooseWebApp(values['web-dir']);
 
-  const server = createServer(createHandler({ resolver, cache, lists, web }));
+  const updates = new Updates(http, cache, {
+    enabled: !values['no-update-check'] && !process.env['MTG_REPRINT_NO_UPDATE_CHECK'],
+  });
+  void updates.check(); // asked now, so the answer is ready when the page loads
+
+  const server = createServer(createHandler({ resolver, cache, lists, web, updates }));
   const port = await listen(server, Number(values.port ?? process.env['MTG_REPRINT_PORT'] ?? DEFAULT_PORT));
   const url = `http://localhost:${port}`;
   console.log(`MTG RePrint ${VERSION} is running at ${url}`);

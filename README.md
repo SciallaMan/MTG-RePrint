@@ -21,6 +21,8 @@ Download the file for your system from the [Releases](../../releases) page and r
 
 > The executables are not code-signed. Windows SmartScreen and macOS Gatekeeper may warn you the first time: that is expected for unsigned apps. If you prefer, build it yourself (below) or run it from the sources.
 
+**Updating.** When a new version is out, the app shows a notice with a link to it. Download it and put the new program in place of the old one, **in the same folder**: your saved lists and the cache are in the `data` folder next to the program, and a program started from another folder does not see them. (If you already unpacked it somewhere else, move the `data` folder next to it.) To know about new versions the app asks GitHub once each time it starts; `--no-update-check` (or `MTG_REPRINT_NO_UPDATE_CHECK=1`) turns this off.
+
 ### Option B: from the sources
 
 You need [Node.js](https://nodejs.org) 22.22.3 or newer (24 LTS is fine).
@@ -45,8 +47,9 @@ Options of the server (`npm start -- --help` lists them all):
 | `--cache-days <n>` | Days before a cached Scryfall search is refreshed, `0` = never (default 30) |
 | `--refresh` | Ignore cached searches for this run |
 | `--clear-cache` | Delete cached searches and images, then exit |
+| `--no-update-check` | Do not ask GitHub at start whether a new version is out |
 
-Environment variables: `MTG_REPRINT_PORT`, `MTG_REPRINT_DATA_DIR`, `MTG_REPRINT_CACHE_DIR`, `MTG_REPRINT_LISTS_DIR`, `MTG_REPRINT_USER_AGENT`.
+Environment variables: `MTG_REPRINT_PORT`, `MTG_REPRINT_DATA_DIR`, `MTG_REPRINT_CACHE_DIR`, `MTG_REPRINT_LISTS_DIR`, `MTG_REPRINT_USER_AGENT`, `MTG_REPRINT_NO_UPDATE_CHECK`.
 
 ## Decklist format
 

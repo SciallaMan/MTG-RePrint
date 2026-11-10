@@ -9,6 +9,7 @@ import { contentTypeFor } from './static.ts';
 import { withPriority } from './http.ts';
 import { LIST_ID } from './lists.ts';
 import type { Lists } from './lists.ts';
+import type { Updates } from './updates.ts';
 import type {
   DeckEntry,
   GathererSearchRequest,
@@ -26,6 +27,8 @@ export interface AppDeps {
   lists: Lists;
   /** Null when the web app has not been built. */
   web: StaticSource | null;
+  /** The "new version" notice; without it no update is ever reported. */
+  updates?: Updates;
 }
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -220,6 +223,11 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
 
     if (url.pathname === '/api/info' && method === 'GET') {
       return sendJson(res, 200, { name: 'mtg-reprint', version: VERSION, cacheDir: deps.cache.dir });
+    }
+
+    if (url.pathname === '/api/update' && method === 'GET') {
+      const none = { current: VERSION, latest: null, url: null, newer: false };
+      return sendJson(res, 200, deps.updates ? await deps.updates.check() : none);
     }
 
     if (url.pathname === '/api/lists' && method === 'GET') {

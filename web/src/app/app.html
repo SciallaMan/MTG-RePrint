@@ -74,6 +74,16 @@
     </div>
   </section>
 
+  @if (update(); as info) {
+    <div class="banner update" role="status">
+      <p>
+        <strong>MTG RePrint {{ info.latest }} is out</strong> (you have {{ info.current }}).
+        <a [href]="info.url" target="_blank" rel="noopener noreferrer">Download it</a> and put it in place of this program,
+        in the same folder: your saved lists and the cache (the <code>data</code> folder next to it) are kept.
+      </p>
+      <button type="button" class="link" (click)="dismissUpdate()">Dismiss</button>
+    </div>
+  }
   @if (error(); as message) {
     <p class="banner error" role="alert">{{ message }}</p>
   }

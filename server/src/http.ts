@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { GITHUB_DELAY_MS } from './config.ts';
 import type { Delays } from './config.ts';
 
-export type HostKind = 'scryfall' | 'gatherer';
+export type HostKind = 'scryfall' | 'gatherer' | 'github';
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class HttpError extends Error {
@@ -72,6 +73,7 @@ export class Http {
   }
 
   private delayFor(kind: HostKind): number {
+    if (kind === 'github') return GITHUB_DELAY_MS;
     return kind === 'scryfall' ? this.opts.delays.scryfallMs : this.opts.delays.gathererMs;
   }
 

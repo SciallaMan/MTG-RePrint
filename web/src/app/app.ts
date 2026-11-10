@@ -9,6 +9,7 @@ import type {
   ResolveEvent,
   ResolveRequest,
   ResolvedCard,
+  UpdateInfo,
   WishlistSummary,
 } from './api-types';
 import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
@@ -69,6 +70,8 @@ interface Settings {
 const AVAILABILITY_TEXT: Record<Availability, string> = { full: '✓ on Gatherer', front: 'front only', none: 'no image' };
 
 const STORAGE_KEY = 'mtg-reprint.settings';
+/** The version whose "new version" notice was closed: it is not shown again for that version. */
+const UPDATE_DISMISSED_KEY = 'mtg-reprint.update-dismissed';
 const DEFAULTS: Settings = { lang: 'it', sets: '', skipBasicLands: false, format: 'a4', cutMarks: true };
 
 export const LANGUAGES: readonly { code: string; name: string }[] = [
@@ -145,6 +148,8 @@ export class App {
   protected readonly pdfBusy = signal(false);
   protected readonly pdfProgress = signal<{ done: number; total: number } | null>(null);
   protected readonly notice = signal<string | null>(null);
+  /** A newer release, while its notice is shown. */
+  protected readonly update = signal<UpdateInfo | null>(null);
 
   /** Saved lists (wishlists), most recent first. */
   protected readonly savedLists = signal<WishlistSummary[]>([]);
@@ -193,6 +198,33 @@ export class App {
       }
     });
     void this.refreshLists();
+    void this.checkUpdate();
+  }
+
+  /** Show the "new version" notice, unless it was closed for that version. */
+  private async checkUpdate(): Promise<void> {
+    try {
+      const info = await this.api.update();
+      let dismissed: string | null = null;
+      try {
+        dismissed = localStorage.getItem(UPDATE_DISMISSED_KEY);
+      } catch {
+        // storage not available: the notice is shown every time
+      }
+      if (info.newer && info.url && info.latest !== dismissed) this.update.set(info);
+    } catch {
+      // no notice: the app works the same
+    }
+  }
+
+  protected dismissUpdate(): void {
+    const info = this.update();
+    this.update.set(null);
+    try {
+      if (info?.latest) localStorage.setItem(UPDATE_DISMISSED_KEY, info.latest);
+    } catch {
+      // storage not available: the notice comes back next time
+    }
   }
 
   protected value(event: Event): string {

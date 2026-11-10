@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- A notice when a new version is out, with a link to download it and a reminder to put it in the same folder as the old one, so the saved lists and the cache (the `data` folder) are kept. The app asks GitHub once each time it starts; `--no-update-check` (or `MTG_REPRINT_NO_UPDATE_CHECK=1`) turns this off. **Dismiss** hides the notice until the next version.
+
 ## [0.4.0]
 
 ### Added
