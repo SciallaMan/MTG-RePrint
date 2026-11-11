@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
+import { writeAtomic } from './cache.ts';
 import type { DeckEntry, SaveWishlistRequest, Wishlist, WishlistSummary } from './types.ts';
 
 /** A UUID in lower case, as a regex source (Scryfall ids and list ids). */
@@ -66,10 +67,7 @@ export class Lists {
       updatedAt: new Date().toISOString(),
     };
     await mkdir(this.dir, { recursive: true });
-    const file = this.file(list.id);
-    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, `${JSON.stringify(list, null, 2)}\n`);
-    await rename(tmp, file);
+    await writeAtomic(this.file(list.id), `${JSON.stringify(list, null, 2)}\n`);
     return list;
   }
 

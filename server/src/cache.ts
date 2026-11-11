@@ -6,6 +6,13 @@ import path from 'node:path';
 export const IMAGE_FILE = /^gatherer_[A-Za-z0-9_-]+\.(png|jpg|webp)$/;
 const JSON_FILE = /^api_[0-9a-f]+\.json$/;
 
+/** Write a file in one go: a temporary file next to it, then a rename (readers never see a half-written file). */
+export async function writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmp, data);
+  await rename(tmp, file);
+}
+
 export interface CachedJson {
   value: unknown;
   mtimeMs: number;
@@ -48,7 +55,7 @@ export class Cache {
 
   async writeJson(key: string, value: unknown): Promise<void> {
     await this.ensure();
-    await this.writeAtomic(path.join(this.dir, `api_${key}.json`), JSON.stringify(value));
+    await writeAtomic(path.join(this.dir, `api_${key}.json`), JSON.stringify(value));
     this.refreshed.add(key);
   }
 
@@ -71,7 +78,7 @@ export class Cache {
   async writeImage(file: string, data: Uint8Array): Promise<void> {
     if (!IMAGE_FILE.test(file)) throw new Error(`Invalid image name: ${file}`);
     await this.ensure();
-    await this.writeAtomic(path.join(this.dir, file), data);
+    await writeAtomic(path.join(this.dir, file), data);
   }
 
   /** Delete cached searches and images (only the files this app creates), not the folder. */
@@ -96,11 +103,5 @@ export class Cache {
       }
     }
     return { count, bytes };
-  }
-
-  private async writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
-    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, data);
-    await rename(tmp, file);
   }
 }

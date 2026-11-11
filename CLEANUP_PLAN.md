@@ -86,7 +86,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   there is no extension. Extract a shared function; each class keeps only its own lookup. Tests: `static.test.ts`,
   `app.test.ts` (path traversal). Risk: low–medium (security-relevant code, but the traversal tests exist and the
   logic does not change). Benefit: one place for the SPA rule.
-- [ ] **D2. One atomic write** — `server/src/cache.ts` (`writeAtomic`) and `server/src/lists.ts` (`save`) both do
+- [x] **D2. One atomic write** — `server/src/cache.ts` (`writeAtomic`) and `server/src/lists.ts` (`save`) both do
   "write `<file>.<pid>.<time>.tmp`, then `rename`". Export the function from `cache.ts` (or a tiny `fs.ts`) and use it
   in `lists.ts`. Tests: `cache.test.ts`, `lists.test.ts`. Risk: low–medium (file writing; same calls, just moved).
 - [ ] **D3. Move the Gatherer-link functions to their own module** — `parseGathererLink`, `gathererLinkId`,
