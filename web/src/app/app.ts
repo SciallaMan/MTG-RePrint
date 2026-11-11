@@ -734,6 +734,6 @@ export class App {
   }
 
   protected imageUrl(file: string): string {
-    return `/api/images/${encodeURIComponent(file)}`;
+    return this.api.imageUrl(file);
   }
 }

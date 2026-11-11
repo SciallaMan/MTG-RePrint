@@ -43,8 +43,13 @@ export class Api {
     if (rest) onEvent(JSON.parse(rest) as ResolveEvent);
   }
 
+  /** Address of a cached image (what the <img> tags and `imageBytes` load). */
+  imageUrl(file: string): string {
+    return `/api/images/${encodeURIComponent(file)}`;
+  }
+
   async imageBytes(file: string): Promise<Uint8Array> {
-    const res = await fetch(`/api/images/${encodeURIComponent(file)}`);
+    const res = await fetch(this.imageUrl(file));
     if (!res.ok) throw new Error(`Image ${file} is not available (HTTP ${res.status})`);
     return new Uint8Array(await res.arrayBuffer());
   }
