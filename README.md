@@ -68,11 +68,13 @@ Card names are English (the Scryfall name), whatever language you want the print
 
 Each card has a versions panel (**Other versions**) to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under **Other versions** on each card, looks for them three prints at a time and adds what it finds to the panel.
 
+To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the end, and at the end of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
+
 ## Saved lists
 
 Below the cards, give the list a name and press **Save as list**. A saved list remembers the cards, their quantities and the versions you picked by hand in the versions panel (marked "Version chosen by hand"); the other cards are looked up again when you open it, with the language and sets of the moment, so they pick up new prints.
 
-- **Open** a list from "Saved lists" above the decklist. You can edit its text, for example to add cards: the versions you picked are kept for the cards that are still there. **Save** updates the list, **Save as new** makes a copy.
+- **Open** a list from "Saved lists" above the decklist. Add cards with **Add a card**, or edit its text: the versions you picked are kept for the cards that are still there. **Save** updates the list, **Save as new** makes a copy.
 - Some translations exist on Gatherer but not on Scryfall (often Commander products): the app finds them anyway, marks the card "Not on Scryfall", and lists them in the versions panel as "only on Gatherer", so a list can keep them too.
 - If Gatherer no longer has the image of a version you picked, another print is used and the card says so.
 - **Where**: one JSON file per list in `data/lists`, next to the program (see [Where files are kept](#where-files-are-kept)). This is not the cache folder: "Clear cache" never deletes your lists.

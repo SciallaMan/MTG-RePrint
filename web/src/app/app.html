@@ -98,7 +98,7 @@
           @if (resolving()) {
             Looking up cards… {{ doneCount() }} / {{ rows().length }}
           } @else {
-            {{ rows().length - failedRows().length }} found, {{ failedRows().length }} not found.
+            {{ foundCount() }} found, {{ failedRows().length }} not found.
           }
           <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
           <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
@@ -143,6 +143,21 @@
             Save as list
           </button>
         }
+      </div>
+
+      <div class="add-card">
+        <input
+          type="text"
+          spellcheck="false"
+          placeholder="Add a card, e.g. 2 Counterspell (MH2) 267"
+          aria-label="Card to add"
+          [value]="addText()"
+          (input)="addText.set(value($event))"
+          (keydown.enter)="addCard()"
+        >
+        <button type="button" [disabled]="adding() || resolving() || addText().trim() === ''" (click)="addCard()">
+          {{ adding() ? 'Adding…' : 'Add card' }}
+        </button>
       </div>
 
       <ul class="grid">

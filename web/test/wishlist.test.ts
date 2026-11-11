@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { pinsOf, toDecklist } from '../src/app/wishlist.ts';
+import { addEntries, pinsOf, toDecklist } from '../src/app/wishlist.ts';
 
 const ID1 = '11111111-1111-1111-1111-111111111111';
 const ID2 = '22222222-2222-2222-2222-222222222222';
@@ -27,4 +27,24 @@ test('pins are keyed by lower-case name; the first print of a name wins', () => 
     ]),
     { 'lightning bolt': ID1 },
   );
+});
+
+test('added cards go at the end; the same card again raises its quantity', () => {
+  const { entries, target } = addEntries(
+    [
+      { qty: 2, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
+      { qty: 1, name: 'Ponder', setCode: 'm12', number: null },
+    ],
+    [
+      { qty: 3, name: 'lightning bolt', setCode: null, number: null },
+      { qty: 1, name: 'Ponder', setCode: null, number: null },
+      { qty: 98, name: 'Ponder', setCode: 'M12', number: null },
+    ],
+  );
+  assert.deepEqual(entries, [
+    { qty: 5, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
+    { qty: 99, name: 'Ponder', setCode: 'm12', number: null },
+    { qty: 1, name: 'Ponder', setCode: null, number: null },
+  ]);
+  assert.deepEqual(target, [-1, 2, -1]);
 });

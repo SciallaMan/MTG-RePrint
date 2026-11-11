@@ -16,6 +16,8 @@ textarea { font-family: ui-monospace, monospace; resize: vertical; }
 .lists .field { flex: 1 1 16rem; }
 .save-list { display: flex; gap: .5rem 1rem; align-items: center; flex-wrap: wrap; margin-top: .75rem; }
 .save-list input[type='text'] { width: auto; flex: 0 1 18rem; min-width: 10rem; }
+.add-card { display: flex; gap: .5rem; align-items: center; margin-top: .75rem; }
+.add-card input[type='text'] { width: auto; flex: 0 1 28rem; min-width: 10rem; }
 button { font: inherit; cursor: pointer; border-radius: .5rem; border: 1px solid var(--border); padding: .5rem 1rem; color: inherit; background: var(--surface); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }

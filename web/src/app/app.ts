@@ -15,7 +15,7 @@ import type {
 import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
-import { pinsOf, toDecklist } from './wishlist';
+import { addEntries, pinsOf, toDecklist } from './wishlist';
 
 interface Row {
   entry: DeckEntry;
@@ -89,6 +89,13 @@ export const LANGUAGES: readonly { code: string; name: string; english: string }
   { code: 'zht', name: '繁體中文', english: 'Traditional Chinese' },
 ];
 
+/** What a "card" event of /api/resolve changes in its row. */
+function cardPatch(event: Extract<ResolveEvent, { type: 'card' }>): Partial<Row> {
+  return event.status === 'ok'
+    ? { state: 'ok', card: event.card }
+    : { state: event.status, message: event.message };
+}
+
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -111,6 +118,8 @@ function loadSettings(): Settings {
 export class App {
   private readonly api = inject(Api);
   private abort: AbortController | null = null;
+  /** The card being added with "Add card", while it is looked up. */
+  private addAbort: AbortController | null = null;
   /** Language the current list was resolved in (the select may have changed since). */
   private resolvedLang = 'en';
   /** Increases with every search: late answers for an older list are dropped. */
@@ -160,6 +169,9 @@ export class App {
   protected readonly currentList = signal<{ id: string; name: string } | null>(null);
   protected readonly listName = signal('');
   protected readonly listBusy = signal(false);
+  /** The "Add a card" line, and whether its card is being looked up. */
+  protected readonly addText = signal('');
+  protected readonly adding = signal(false);
 
   protected readonly sets = computed(() =>
     this.setsText()
@@ -180,6 +192,7 @@ export class App {
   });
 
   protected readonly pageCount = computed(() => Math.ceil(this.slots().length / PER_PAGE));
+  protected readonly foundCount = computed(() => this.rows().filter((r) => r.state === 'ok').length);
   protected readonly failedRows = computed(() => this.rows().filter((r) => r.state === 'not_found' || r.state === 'error'));
   protected readonly doneCount = computed(() => this.rows().filter((r) => r.state !== 'pending').length);
 
@@ -238,6 +251,7 @@ export class App {
 
   protected async resolve(): Promise<void> {
     this.abort?.abort();
+    this.stopAdding();
     const controller = new AbortController();
     this.abort = controller;
     const request: ResolveRequest = {
@@ -292,14 +306,84 @@ export class App {
       this.rows.set(event.entries.map((entry) => ({ entry, state: 'pending' as const })));
       if (event.entries.length === 0) this.error.set('No cards found in the list.');
     } else if (event.type === 'card') {
-      this.rows.update((rows) =>
-        rows.map((row, i): Row => {
-          if (i !== event.index) return row;
-          if (event.status === 'ok') return { ...row, state: 'ok', card: event.card };
-          return { ...row, state: event.status, message: event.message };
-        }),
-      );
+      this.rows.update((rows) => rows.map((row, i): Row => (i === event.index ? { ...row, ...cardPatch(event) } : row)));
     }
+  }
+
+  /**
+   * "Add card": look up the card(s) of the line and put them at the end of the list, without
+   * searching the whole list again. A card already in the list (same name, set and number) gets
+   * the quantity instead. The line also goes at the end of the decklist text.
+   */
+  protected async addCard(): Promise<void> {
+    const line = this.addText().trim();
+    if (!line || this.adding() || this.resolving()) return;
+    this.stopAdding();
+    const controller = new AbortController();
+    this.addAbort = controller;
+    const gen = this.generation;
+    this.error.set(null);
+    this.notice.set(null);
+    this.adding.set(true);
+    /** Row of each entry of the answer, or -1 when it went into an existing row. */
+    let target: number[] = [];
+    const request: ResolveRequest = { decklist: line, lang: this.resolvedLang, sets: this.sets(), skipBasicLands: false };
+    try {
+      await this.api.resolve(
+        request,
+        (event) => {
+          if (gen !== this.generation) return controller.abort();
+          if (event.type === 'start') {
+            if (event.entries.length === 0) return this.error.set(`No card in "${line}".`);
+            const added = addEntries(
+              this.rows().map((r) => r.entry),
+              event.entries,
+            );
+            target = added.target;
+            this.rows.update((rows) => [
+              ...rows.map((row, i) => ({ ...row, entry: added.entries[i] ?? row.entry })),
+              ...added.entries.slice(rows.length).map((entry) => ({ entry, state: 'pending' as const })),
+            ]);
+            this.appendToDecklist(toDecklist(event.entries));
+            this.addText.set('');
+            if (target.every((t) => t < 0)) controller.abort(); // only quantities changed: nothing to look up
+          } else if (event.type === 'card') {
+            const index = target[event.index] ?? -1;
+            if (index >= 0) this.patchRow(index, gen, cardPatch(event));
+          }
+        },
+        controller.signal,
+      );
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        this.error.set(
+          error instanceof TypeError
+            ? 'Cannot reach the MTG RePrint server. Is it still running?'
+            : error instanceof Error
+              ? error.message
+              : String(error),
+        );
+      }
+    } finally {
+      if (this.addAbort === controller) {
+        this.adding.set(false);
+        this.addAbort = null;
+      }
+    }
+  }
+
+  private stopAdding(): void {
+    this.addAbort?.abort();
+    this.addAbort = null;
+    this.adding.set(false);
+  }
+
+  /** Lines added to the list also go in its text; an open list whose text was unchanged stays in step. */
+  private appendToDecklist(lines: string): void {
+    const before = this.decklist();
+    const text = [before.trimEnd(), lines].filter(Boolean).join('\n');
+    this.decklist.set(text);
+    if (this.listSource && this.listSource.text === before) this.listSource = { ...this.listSource, text };
   }
 
   /** Update one row, unless a new search (`generation`) has replaced the list since the work started. */
