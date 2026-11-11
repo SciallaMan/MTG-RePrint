@@ -8,6 +8,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 - **Try again** on a card that was not found (or **Retry the N not found** in the summary): only those cards are looked up again, in place, without searching the whole list. Useful after Gatherer refused the pages for a while, or after adding the print by hand.
 - **Remove** on a card takes it out of the list (and its line out of the decklist text), instead of leaving it at quantity 0.
+- Two more paper sizes: **A3** (16 cards per page) and **US Legal** (12). The paper menu says how many cards each size holds.
 
 ## [0.5.0]
 

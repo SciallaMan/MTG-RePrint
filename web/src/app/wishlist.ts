@@ -53,6 +53,34 @@ export function removeLine(text: string, entry: DeckEntry): string {
   return lines.join('\n');
 }
 
+/** What the "Preferred sets" field says: sets to try first, sets never to use, sets to try last. */
+export interface SetPrefs {
+  sets: string[];
+  excludedSets: string[];
+  lastSets: string[];
+}
+
+/**
+ * The "Preferred sets" field: set codes separated by spaces or commas, in order of preference;
+ * "-sld" excludes a set, "~plst" tries it after every other.
+ */
+export function parseSetPrefs(text: string): SetPrefs {
+  const prefs: SetPrefs = { sets: [], excludedSets: [], lastSets: [] };
+  for (const token of text.split(/[\s,]+/)) {
+    const word = token.trim().toLowerCase();
+    const code = word.replace(/^[-~]/, '');
+    if (!code) continue;
+    const list = word.startsWith('-') ? prefs.excludedSets : word.startsWith('~') ? prefs.lastSets : prefs.sets;
+    if (!list.includes(code)) list.push(code);
+  }
+  return prefs;
+}
+
+/** The field text of a saved list's set preferences ("neo, mh2, -sld, ~plst"). */
+export function setPrefsText(prefs: { sets: string[]; excludedSets?: string[]; lastSets?: string[] }): string {
+  return [...prefs.sets, ...(prefs.excludedSets ?? []).map((s) => `-${s}`), ...(prefs.lastSets ?? []).map((s) => `~${s}`)].join(', ');
+}
+
 /** Prints chosen by hand, by lower-case card name (the first one wins when a card appears twice). */
 export function pinsOf(entries: readonly DeckEntry[]): Record<string, string> {
   const pins: Record<string, string> = {};

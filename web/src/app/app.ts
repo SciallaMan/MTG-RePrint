@@ -12,7 +12,7 @@ import type {
   UpdateInfo,
   WishlistSummary,
 } from './api-types';
-import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
+import { PAGE_FORMATS, PAGE_MM, buildPdf, pdfFileName, perPage, toPageFormat } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
 import { MAX_QTY, addEntries, pinsOf, removeLine, toDecklist } from './wishlist';
@@ -114,7 +114,9 @@ function serverErrorMessage(error: unknown): string {
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) } : DEFAULTS;
+    if (!raw) return DEFAULTS;
+    const stored = JSON.parse(raw) as Partial<Settings>;
+    return { ...DEFAULTS, ...stored, format: toPageFormat(String(stored.format ?? DEFAULTS.format)) };
   } catch {
     return DEFAULTS; // storage blocked or corrupted: use the defaults
   }
@@ -146,7 +148,7 @@ export class App {
   private rowsFromList = false;
 
   protected readonly languages = LANGUAGES;
-  protected readonly perPage = PER_PAGE;
+  protected readonly pageFormats = PAGE_FORMATS;
 
   protected readonly decklist = signal('');
   protected readonly lang = signal(this.saved.lang);
@@ -206,7 +208,8 @@ export class App {
     return slots;
   });
 
-  protected readonly pageCount = computed(() => Math.ceil(this.slots().length / PER_PAGE));
+  protected readonly perPage = computed(() => perPage(this.format()));
+  protected readonly pageCount = computed(() => Math.ceil(this.slots().length / this.perPage()));
   protected readonly foundCount = computed(() => this.rows().filter((r) => r.state === 'ok').length);
   protected readonly failedRows = computed(() => this.rows().filter((r) => r.state === 'not_found' || r.state === 'error'));
   protected readonly doneCount = computed(() => this.rows().filter((r) => r.state !== 'pending').length);
@@ -254,6 +257,15 @@ export class App {
     } catch {
       // storage not available: the notice comes back next time
     }
+  }
+
+  /** "A4 (9 cards)", for the paper menu. */
+  protected pageLabel(format: PageFormat): string {
+    return `${PAGE_MM[format].name} (${perPage(format)} cards)`;
+  }
+
+  protected toPageFormat(value: string): PageFormat {
+    return toPageFormat(value);
   }
 
   protected value(event: Event): string {

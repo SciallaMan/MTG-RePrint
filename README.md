@@ -5,7 +5,7 @@ A small web app that turns a Magic: The Gathering decklist into a print-ready PD
 - **Data** (which prints exist, in which language, from which set) comes from [Scryfall](https://scryfall.com).
 - **Images** always come from [Gatherer](https://gatherer.wizards.com), never from Scryfall. If Gatherer has no image for a print, the next print is tried.
 - **Language first**: your preferred language (default Italian) is tried before anything else, with your preferred set first and the most recent print after that. English is used only when there is no image in your language, and the card tells you why.
-- **Output**: PDF in A4 or US Letter, 3×3 cards per page at the real size of 63 × 88 mm, with optional cut marks. Print it at 100% ("actual size").
+- **Output**: PDF in A4 or US Letter (3×3 cards per page), A3 (4×4) or US Legal (3×4), at the real size of 63 × 88 mm, with optional cut marks. Print it at 100% ("actual size").
 - Double-faced cards use two slots (front and back). Quantities can be changed in the preview.
 - In the preview each card name links to its Gatherer page, and a dropdown under the card lists its other versions, in your language and in English (loaded only when you point at it). Pick one to use it instead: the app checks Gatherer at that moment, and marks versions it has already checked (✓, "front only", "no image").
 

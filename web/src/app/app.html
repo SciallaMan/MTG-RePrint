@@ -49,9 +49,10 @@
       </label>
       <label class="field">
         <span>Paper</span>
-        <select [value]="format()" (change)="format.set(value($event) === 'letter' ? 'letter' : 'a4')">
-          <option value="a4" [selected]="format() === 'a4'">A4</option>
-          <option value="letter" [selected]="format() === 'letter'">US Letter</option>
+        <select [value]="format()" (change)="format.set(toPageFormat(value($event)))">
+          @for (f of pageFormats; track f) {
+            <option [value]="f" [selected]="format() === f">{{ pageLabel(f) }}</option>
+          }
         </select>
       </label>
       <label class="check">
@@ -106,7 +107,7 @@
             }
           }
           <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
-          <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
+          <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage() }} per page).
         </p>
         <button
           type="button"

@@ -2,7 +2,21 @@ import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 import { test } from 'node:test';
 import { PDFDocument } from 'pdf-lib';
-import { CARD_H_MM, CARD_W_MM, PAGE_MM, buildPdf, cutMarks, gridMargins, layout, mmToPt, pageCount, pdfFileName } from '../src/app/pdf/pdf.ts';
+import {
+  CARD_H_MM,
+  CARD_W_MM,
+  PAGE_FORMATS,
+  PAGE_MM,
+  buildPdf,
+  cutMarks,
+  gridMargins,
+  layout,
+  mmToPt,
+  pageCount,
+  pdfFileName,
+  perPage,
+  toPageFormat,
+} from '../src/app/pdf/pdf.ts';
 
 function crc32(buf: Uint8Array): number {
   let c = ~0;
@@ -47,15 +61,29 @@ test('the grid is centred and cards are 63 x 88 mm', () => {
   assert.equal((slots[1]?.xMm ?? 0) - (slots[0]?.xMm ?? 0), CARD_W_MM);
   assert.equal((slots[3]?.yMm ?? 0) - (slots[0]?.yMm ?? 0), CARD_H_MM);
   assert.equal(slots[9]?.xMm, m.xMm); // the 10th card starts a new page
-  assert.equal(pageCount(9), 1);
-  assert.equal(pageCount(10), 2);
+  assert.equal(pageCount(9, 'a4'), 1);
+  assert.equal(pageCount(10, 'a4'), 2);
 });
 
-test('cut marks stay inside the page for A4 and Letter', () => {
-  for (const format of ['a4', 'letter'] as const) {
+test('every format holds its grid with a margin: 9 on A4 and Letter, 16 on A3, 12 on Legal', () => {
+  assert.deepEqual(PAGE_FORMATS.map(perPage), [9, 16, 9, 12]);
+  for (const format of PAGE_FORMATS) {
+    const m = gridMargins(format);
+    assert.ok(m.xMm >= 3 && m.yMm >= 1.5, `${format}: margins ${m.xMm} x ${m.yMm}`);
+    const last = layout(Array.from({ length: perPage(format) + 1 }, () => ({ image: 'x' })), format);
+    assert.equal(last[perPage(format)]?.page, 1, `${format}: one more card starts page 2`);
+    const { columns } = PAGE_MM[format];
+    assert.equal(last[columns]?.xMm, m.xMm, `${format}: the row wraps after ${columns} cards`);
+  }
+  assert.equal(toPageFormat('legal'), 'legal');
+  assert.equal(toPageFormat('tabloid'), 'a4');
+});
+
+test('cut marks stay inside the page, one per card edge', () => {
+  for (const format of PAGE_FORMATS) {
     const marks = cutMarks(format);
-    assert.equal(marks.length, 4 * 2 * 2);
-    const { w, h } = PAGE_MM[format];
+    const { w, h, columns, rows } = PAGE_MM[format];
+    assert.equal(marks.length, (columns + 1) * 2 + (rows + 1) * 2);
     for (const s of marks) {
       for (const v of [s.x1, s.x2]) assert.ok(v >= 0 && v <= w, `${format} x ${v}`);
       for (const v of [s.y1, s.y2]) assert.ok(v >= 0 && v <= h, `${format} y ${v}`);

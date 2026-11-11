@@ -6,15 +6,36 @@ import type { PDFImage } from 'pdf-lib';
 
 export const CARD_W_MM = 63;
 export const CARD_H_MM = 88;
-export const COLUMNS = 3;
-export const ROWS = 3;
-export const PER_PAGE = COLUMNS * ROWS;
 
-export type PageFormat = 'a4' | 'letter';
-export const PAGE_MM: Record<PageFormat, { w: number; h: number }> = {
-  a4: { w: 210, h: 297 },
-  letter: { w: 215.9, h: 279.4 },
+export type PageFormat = 'a4' | 'a3' | 'letter' | 'legal';
+export const PAGE_FORMATS: readonly PageFormat[] = ['a4', 'a3', 'letter', 'legal'];
+
+export interface PageSpec {
+  name: string;
+  /** Page size in millimetres. */
+  w: number;
+  h: number;
+  /** Cards per row and per column: as many as fit the page. */
+  columns: number;
+  rows: number;
+}
+
+export const PAGE_MM: Record<PageFormat, PageSpec> = {
+  a4: { name: 'A4', w: 210, h: 297, columns: 3, rows: 3 },
+  a3: { name: 'A3', w: 297, h: 420, columns: 4, rows: 4 },
+  letter: { name: 'US Letter', w: 215.9, h: 279.4, columns: 3, rows: 3 },
+  legal: { name: 'US Legal', w: 215.9, h: 355.6, columns: 3, rows: 4 },
 };
+
+/** The format with this name, A4 for anything else (an old or hand-edited setting). */
+export function toPageFormat(value: string): PageFormat {
+  return (PAGE_FORMATS as readonly string[]).includes(value) ? (value as PageFormat) : 'a4';
+}
+
+/** Cards on one page of this format. */
+export function perPage(format: PageFormat): number {
+  return PAGE_MM[format].columns * PAGE_MM[format].rows;
+}
 
 const PT_PER_MM = 72 / 25.4;
 export const mmToPt = (mm: number): number => mm * PT_PER_MM;
@@ -32,25 +53,27 @@ export interface Placement {
   image: string;
 }
 
-/** Margin around the 3x3 grid, so that it is centred on the page. */
+/** Margin around the grid of cards, so that it is centred on the page. */
 export function gridMargins(format: PageFormat): { xMm: number; yMm: number } {
   const page = PAGE_MM[format];
-  return { xMm: (page.w - COLUMNS * CARD_W_MM) / 2, yMm: (page.h - ROWS * CARD_H_MM) / 2 };
+  return { xMm: (page.w - page.columns * CARD_W_MM) / 2, yMm: (page.h - page.rows * CARD_H_MM) / 2 };
 }
 
-export function pageCount(slots: number): number {
-  return Math.ceil(slots / PER_PAGE);
+export function pageCount(slots: number, format: PageFormat): number {
+  return Math.ceil(slots / perPage(format));
 }
 
-/** Place the slots left to right, top to bottom, 9 per page. */
+/** Place the slots left to right, top to bottom, as many per page as the format holds. */
 export function layout(slots: readonly Slot[], format: PageFormat): Placement[] {
   const m = gridMargins(format);
+  const { columns } = PAGE_MM[format];
+  const onOne = perPage(format);
   return slots.map((slot, i) => {
-    const onPage = i % PER_PAGE;
+    const onPage = i % onOne;
     return {
-      page: Math.floor(i / PER_PAGE),
-      xMm: m.xMm + (onPage % COLUMNS) * CARD_W_MM,
-      yMm: m.yMm + Math.floor(onPage / COLUMNS) * CARD_H_MM,
+      page: Math.floor(i / onOne),
+      xMm: m.xMm + (onPage % columns) * CARD_W_MM,
+      yMm: m.yMm + Math.floor(onPage / columns) * CARD_H_MM,
       image: slot.image,
     };
   });
@@ -66,13 +89,14 @@ export interface Segment {
 /** Cut marks, in millimetres from the top-left: short lines in the margin, on the card edges. */
 export function cutMarks(format: PageFormat, lengthMm = 4): Segment[] {
   const m = gridMargins(format);
+  const { columns, rows } = PAGE_MM[format];
   const len = Math.min(lengthMm, m.xMm, m.yMm);
-  const xs = Array.from({ length: COLUMNS + 1 }, (_, i) => m.xMm + i * CARD_W_MM);
-  const ys = Array.from({ length: ROWS + 1 }, (_, i) => m.yMm + i * CARD_H_MM);
+  const xs = Array.from({ length: columns + 1 }, (_, i) => m.xMm + i * CARD_W_MM);
+  const ys = Array.from({ length: rows + 1 }, (_, i) => m.yMm + i * CARD_H_MM);
   const top = ys[0] as number;
-  const bottom = ys[ROWS] as number;
+  const bottom = ys[rows] as number;
   const left = xs[0] as number;
-  const right = xs[COLUMNS] as number;
+  const right = xs[columns] as number;
   const segments: Segment[] = [];
   for (const x of xs) {
     segments.push({ x1: x, y1: top - len, x2: x, y2: top });
@@ -122,7 +146,7 @@ export function pdfFileName(name: string | null | undefined): string {
   return `${base || 'proxies'}.pdf`;
 }
 
-/** Build the PDF: 3x3 cards of 63 x 88 mm per page, optionally with cut marks. */
+/** Build the PDF: a grid of 63 x 88 mm cards per page (3x3 on A4 and Letter), optionally with cut marks. */
 export async function buildPdf(slots: readonly Slot[], opts: PdfOptions): Promise<Uint8Array> {
   if (slots.length === 0) throw new Error('There is nothing to print');
   const doc = await PDFDocument.create();
@@ -137,7 +161,7 @@ export async function buildPdf(slots: readonly Slot[], opts: PdfOptions): Promis
   const marks = opts.cutMarks ? cutMarks(opts.format) : [];
 
   const images = new Map<string, PDFImage>(); // each image is embedded once, however many copies
-  const pages = Array.from({ length: pageCount(slots.length) }, () => {
+  const pages = Array.from({ length: pageCount(slots.length, opts.format) }, () => {
     const p = doc.addPage([pageW, pageH]);
     for (const s of marks) {
       p.drawLine({
