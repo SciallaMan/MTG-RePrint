@@ -25,6 +25,9 @@ export const RETRY_AFTER_MS = 10 * 60_000;
 
 type PageResult = { file: string; label: string; printedName: string | null } | { file: null; reason: string | null };
 
+/** "NEO/it-it/141": how a Gatherer page is named in sources and reasons. */
+const pageLabel = (setCode: string, lang: string, num: string): string => `${setCode}/${lang}/${num}`;
+
 /** What a Gatherer page gave, remembered on disk for the pages looked up without Scryfall. */
 interface PageMemo {
   rid: string | null;
@@ -216,7 +219,7 @@ export class Gatherer {
     const setCode = card.set ? gathererSetCode(card.set) : '';
     const num = String(card.collector_number ?? '');
     if (!lang || !setCode || !num || this.pagesBlockedUntil > this.now()) return { file: null, reason: null };
-    const label = `${setCode}/${lang}/${num}`;
+    const label = pageLabel(setCode, lang, num);
     const base = gathererPageUrl(setCode, lang, num);
     const slug = gathererSlug(card.name);
     const urls = slug ? (remember ? [`${base}/${slug}`] : [`${base}/${slug}`, base]) : [base];
@@ -240,7 +243,7 @@ export class Gatherer {
     remember: boolean,
     rememberMisses = remember,
   ): Promise<PageResult | null> {
-    const label = `${setCode}/${lang}/${num}`;
+    const label = pageLabel(setCode, lang, num);
     const key = this.cache.jsonKey('gatherer-page', { url });
     let memo: PageMemo | null = null;
     if (remember) {
@@ -283,7 +286,7 @@ export class Gatherer {
    * (whatever the slug). Only the front face: the page shows one image.
    */
   async imageFromLink(link: GathererLink): Promise<{ file: string; printedName: string | null } | { file: null; reason: string }> {
-    const label = `${link.set}/${link.lang}/${link.number}`;
+    const label = pageLabel(link.set, link.lang, link.number);
     if (this.pagesBlockedUntil > this.now()) return { file: null, reason: `${label}: Gatherer is refusing pages, try again later` };
     const page = await this.readPage(gathererLinkUrl(link), link.set, link.lang, link.number, true, false);
     if (page && page.file !== null) return { file: page.file, printedName: page.printedName };

@@ -71,7 +71,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   requestedSetFound: true, langNote: null })` call for a print chosen by hand appears in `deck.ts` (pinned entry)
   and `app.ts` (`print` endpoint); `[...new Set(reasons)].join('; ')` appears in both too. One small helper for each
   in `deck.ts`. Tests: `lists.test.ts`, `versions.test.ts`, `links.test.ts`. Risk: low.
-- [ ] **C4. `pageLabel()` in `gatherer.ts`** — `${setCode}/${lang}/${num}` is built in `imageFromPage`,
+- [x] **C4. `pageLabel()` in `gatherer.ts`** — `${setCode}/${lang}/${num}` is built in `imageFromPage`,
   `readPage` and `imageFromLink` (and a variant in `findImages`). One function. Tests: `resolver.test.ts`,
   `fixes.test.ts`, `links.test.ts` match on these labels. Risk: low.
 - [ ] **C5. `MAX_QTY` constant** — the quantity limit 99 is a literal in `server/src/app.ts` (validation and its
