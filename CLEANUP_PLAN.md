@@ -35,7 +35,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   `web/test/api-types.test.ts` requires the two files to stay identical). Risk: low. Benefit: readability.
 - [x] **A3. `index.ts` style** — `server/src/index.ts`: a double blank line (l. 90–91) and `import { isSea } from
   'node:sea'` sitting among the local imports instead of with the `node:` ones. Risk: low.
-- [ ] **A4. Re-indent `app.html`** — `web/src/app/app.html`. The last commit went through an editor formatter that
+- [x] **A4. Re-indent `app.html`** — `web/src/app/app.html`. The last commit went through an editor formatter that
   does not know Angular control flow: the children of every `@if` / `@for` lost their indentation and a few long
   lines were wrapped (`Find\n        cards` inside a button). Markup is unchanged, only whitespace, which HTML
   collapses. Put the previous indentation back (as in `git show 471a6a1:web/src/app/app.html`, plus the lines added

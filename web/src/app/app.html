@@ -13,9 +13,9 @@
             {{ savedLists().length ? 'Choose a list…' : 'No saved lists yet' }}
           </option>
           @for (l of savedLists(); track l.id) {
-          <option [value]="l.id" [selected]="l.id === selectedListId()">
-            {{ l.name }} ({{ l.cards }} card{{ l.cards === 1 ? '' : 's' }})
-          </option>
+            <option [value]="l.id" [selected]="l.id === selectedListId()">
+              {{ l.name }} ({{ l.cards }} card{{ l.cards === 1 ? '' : 's' }})
+            </option>
           }
         </select>
       </label>
@@ -25,9 +25,13 @@
 
     <label class="field">
       <span>Decklist</span>
-      <textarea rows="12" spellcheck="false"
+      <textarea
+        rows="12"
+        spellcheck="false"
         placeholder="4 Lightning Bolt&#10;1 Fable of the Mirror-Breaker (NEO) 141&#10;2x Counterspell"
-        [value]="decklist()" (input)="decklist.set(value($event))"></textarea>
+        [value]="decklist()"
+        (input)="decklist.set(value($event))"
+      ></textarea>
     </label>
 
     <div class="options">
@@ -35,7 +39,7 @@
         <span>Card language</span>
         <select [value]="lang()" (change)="lang.set(value($event))">
           @for (l of languages; track l.code) {
-          <option [value]="l.code" [selected]="l.code === lang()">{{ l.name }}</option>
+            <option [value]="l.code" [selected]="l.code === lang()">{{ l.name }}</option>
           }
         </select>
       </label>
@@ -62,224 +66,245 @@
 
     <div class="actions">
       @if (resolving()) {
-      <button type="button" class="secondary" (click)="cancel()">Cancel</button>
+        <button type="button" class="secondary" (click)="cancel()">Cancel</button>
       } @else {
-      <button type="button" class="primary" [disabled]="decklist().trim() === ''" (click)="resolve()">Find
-        cards</button>
+        <button type="button" class="primary" [disabled]="decklist().trim() === ''" (click)="resolve()">Find cards</button>
       }
       <button type="button" class="link" (click)="clearCache()">Clear cache</button>
     </div>
   </section>
 
   @if (update(); as info) {
-  <div class="banner update" role="status">
-    <p>
-      <strong>MTG RePrint {{ info.latest }} is out</strong> (you have {{ info.current }}).
-      <a [href]="info.url" target="_blank" rel="noopener noreferrer">Download it</a> and put it in place of this
-      program,
-      in the same folder: your saved lists and the cache (the <code>data</code> folder next to it) are kept.
-    </p>
-    <button type="button" class="link" (click)="dismissUpdate()">Dismiss</button>
-  </div>
+    <div class="banner update" role="status">
+      <p>
+        <strong>MTG RePrint {{ info.latest }} is out</strong> (you have {{ info.current }}).
+        <a [href]="info.url" target="_blank" rel="noopener noreferrer">Download it</a> and put it in place of this program,
+        in the same folder: your saved lists and the cache (the <code>data</code> folder next to it) are kept.
+      </p>
+      <button type="button" class="link" (click)="dismissUpdate()">Dismiss</button>
+    </div>
   }
   @if (error(); as message) {
-  <p class="banner error" role="alert">{{ message }}</p>
+    <p class="banner error" role="alert">{{ message }}</p>
   }
   @if (notice(); as message) {
-  <p class="banner ok" role="status">{{ message }}</p>
+    <p class="banner ok" role="status">{{ message }}</p>
   }
 
   @if (rows().length > 0) {
-  <section class="result">
-    <div class="summary">
-      <p>
-        @if (resolving()) {
-        Looking up cards… {{ doneCount() }} / {{ rows().length }}
-        } @else {
-        {{ foundCount() }} found, {{ failedRows().length }} not found.
+    <section class="result">
+      <div class="summary">
+        <p>
+          @if (resolving()) {
+            Looking up cards… {{ doneCount() }} / {{ rows().length }}
+          } @else {
+            {{ foundCount() }} found, {{ failedRows().length }} not found.
+          }
+          <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
+          <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
+        </p>
+        <button
+          type="button"
+          class="primary"
+          [disabled]="slots().length === 0 || pdfBusy() || resolving()"
+          (click)="downloadPdf()"
+        >
+          @if (pdfBusy()) {
+            Building PDF… {{ pdfProgress()?.done }} / {{ pdfProgress()?.total }}
+          } @else {
+            Download PDF
+          }
+        </button>
+      </div>
+
+      <div class="save-list">
+        @if (currentList(); as list) {
+          <span class="sub">Open list: <strong>{{ list.name }}</strong></span>
         }
-        <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
-        <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
-      </p>
-      <button type="button" class="primary" [disabled]="slots().length === 0 || pdfBusy() || resolving()"
-        (click)="downloadPdf()">
-        @if (pdfBusy()) {
-        Building PDF… {{ pdfProgress()?.done }} / {{ pdfProgress()?.total }}
-        } @else {
-        Download PDF
-        }
-      </button>
-    </div>
-
-    <div class="save-list">
-      @if (currentList(); as list) {
-      <span class="sub">Open list: <strong>{{ list.name }}</strong></span>
-      }
-      <input type="text" maxlength="100" placeholder="List name" aria-label="List name" [value]="listName()"
-        (input)="listName.set(value($event))" (keydown.enter)="saveList(false)">
-      @if (currentList()) {
-      <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''"
-        (click)="saveList(false)">
-        Save
-      </button>
-      <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(true)">
-        Save as new
-      </button>
-      <button type="button" class="link" (click)="closeList()">Close list</button>
-      } @else {
-      <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''"
-        (click)="saveList(false)">
-        Save as list
-      </button>
-      }
-    </div>
-
-    <div class="add-card">
-      <input type="text" spellcheck="false" placeholder="Add a card (2 Counterspell (MH2) 267) or paste link..."
-        title="A decklist line, or the address of the card's page on Gatherer (gatherer.wizards.com/SET/language/number/name), with a quantity before it if you like"
-        aria-label="Card or Gatherer link to add" [value]="addText()" (input)="addText.set(value($event))"
-        (keydown.enter)="addCard()">
-      <button type="button" [disabled]="adding() || resolving() || addText().trim() === ''" (click)="addCard()">
-        {{ adding() ? 'Adding…' : 'Add card' }}
-      </button>
-    </div>
-
-    <ul class="grid">
-      @for (row of rows(); track $index; let rowIndex = $index) {
-      <li class="item" [class.missing]="row.state === 'not_found' || row.state === 'error'"
-        [class.zero]="row.entry.qty === 0">
-        <div class="art">
-          @if (row.card; as card) {
-          <button type="button" class="zoom-in" [attr.aria-label]="'Enlarge ' + card.printedName"
-            (click)="openZoom(card)">
-            @for (file of card.images; track file) {
-            <img [src]="imageUrl(file)" [alt]="card.printedName" loading="lazy">
-            }
+        <input
+          type="text"
+          maxlength="100"
+          placeholder="List name"
+          aria-label="List name"
+          [value]="listName()"
+          (input)="listName.set(value($event))"
+          (keydown.enter)="saveList(false)"
+        >
+        @if (currentList()) {
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
+            Save
           </button>
-          } @else if (row.state === 'pending') {
-          <span class="placeholder">…</span>
-          } @else {
-          <span class="placeholder">?</span>
-          }
-        </div>
-        <div class="meta">
-          @if (row.card?.gathererUrl; as url) {
-          <a class="name" [href]="url" target="_blank" rel="noopener noreferrer" title="Open on Gatherer">{{
-            row.card.printedName
-            }}</a>
-          } @else {
-          <strong class="name">{{ row.card?.printedName ?? row.entry.name }}</strong>
-          }
-          @if (row.card; as card) {
-          <span class="sub">
-            {{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}
-          </span>
-          @if (card.gathererOnly) {
-          <span class="only-gatherer"
-            title="Scryfall does not list this print in this language: its name and image come from the Gatherer page"><svg
-              class="info-icon" viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="8" cy="8" r="7" />
-              <path d="M8 7v4.5M8 4.6v.1" />
-            </svg>Not on Scryfall</span>
-          }
-          @if (isPinned(row)) {
-          <span class="pinned">Version chosen by hand</span>
-          }
-          @if (card.requested && !card.requestedSetFound) {
-          <span class="warn">{{ card.requested }} not available: another print was used</span>
-          }
-          @if (card.note) {
-          <span class="warn">{{ card.note }}</span>
-          }
-          } @else if (row.message) {
-          <span class="warn">{{ row.message }}</span>
-          }
-          @if (row.state !== 'pending') {
-          <div class="versions">
-            <button type="button" class="versions-toggle" aria-haspopup="listbox"
-              [attr.aria-expanded]="openVersions() === rowIndex" [disabled]="row.switching"
-              (click)="toggleVersions(rowIndex, $event)">
-              <span>{{ row.switching ? 'Checking Gatherer…' : row.card ? 'Other versions' : 'Choose a version' }}</span>
-              <span aria-hidden="true">▾</span>
-            </button>
-            @if (openVersions() === rowIndex) {
-            <div class="versions-panel" [class.left]="panelOnLeft()" [class.up]="panelUp()"
-              [style.max-height.px]="panelUpMaxHeight()" role="listbox" aria-label="Versions">
-              @for (group of versionGroups(row); track group.label) {
-              <p class="group" role="presentation">{{ group.label }}</p>
-              @for (option of group.options; track option.id) {
-              <button type="button" role="option" class="option" [class.current]="option.id === row.card?.scryfallId"
-                [attr.aria-selected]="option.id === row.card?.scryfallId" [disabled]="option.disabled"
-                (click)="chooseVersion(rowIndex, option.id)">
-                <span class="title">{{ option.title }}</span>
-                <span class="detail">
-                  {{ option.detail }}
-                  @if (option.status) {
-                  <span class="status" [class.bad]="option.disabled">· {{ option.status }}</span>
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(true)">
+            Save as new
+          </button>
+          <button type="button" class="link" (click)="closeList()">Close list</button>
+        } @else {
+          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
+            Save as list
+          </button>
+        }
+      </div>
+
+      <div class="add-card">
+        <input
+          type="text"
+          spellcheck="false"
+          placeholder="Add a card (2 Counterspell (MH2) 267) or paste link..."
+          title="A decklist line, or the address of the card's page on Gatherer (gatherer.wizards.com/SET/language/number/name), with a quantity before it if you like"
+          aria-label="Card or Gatherer link to add"
+          [value]="addText()"
+          (input)="addText.set(value($event))"
+          (keydown.enter)="addCard()"
+        >
+        <button type="button" [disabled]="adding() || resolving() || addText().trim() === ''" (click)="addCard()">
+          {{ adding() ? 'Adding…' : 'Add card' }}
+        </button>
+      </div>
+
+      <ul class="grid">
+        @for (row of rows(); track $index; let rowIndex = $index) {
+          <li class="item" [class.missing]="row.state === 'not_found' || row.state === 'error'" [class.zero]="row.entry.qty === 0">
+            <div class="art">
+              @if (row.card; as card) {
+                <button type="button" class="zoom-in" [attr.aria-label]="'Enlarge ' + card.printedName" (click)="openZoom(card)">
+                  @for (file of card.images; track file) {
+                    <img [src]="imageUrl(file)" [alt]="card.printedName" loading="lazy">
                   }
-                </span>
-              </button>
-              }
-              }
-              @if (row.versionsState === 'loading') {
-              <p class="hint">Loading versions…</p>
-              } @else if (row.versionsState === 'error') {
-              <p class="hint">
-                Versions not available.
-                <button type="button" class="link" (click)="loadVersions(rowIndex)">Try again</button>
-              </p>
-              } @else if (row.versionsState === 'loaded' && row.versions?.length === 0) {
-              <p class="hint">No other versions.</p>
+                </button>
+              } @else if (row.state === 'pending') {
+                <span class="placeholder">…</span>
+              } @else {
+                <span class="placeholder">?</span>
               }
             </div>
-            }
-            @if (canSearchGatherer(row)) {
-            <button type="button" class="link search-gatherer" [disabled]="row.searching || row.switching"
-              [title]="searchGathererTitle(row)" (click)="searchGatherer(rowIndex, $event)">
-              {{ row.searching ? 'Searching Gatherer…' : 'Find more ' + resolvedLangName() + ' versions on Gatherer' }}
-            </button>
-            }
-          </div>
-          @if (row.searchNote) {
-          <span class="sub">{{ row.searchNote }}</span>
-          }
-          @if (row.versionError; as message) {
-          <span class="warn">{{ message }}</span>
-          }
-          }
-          <span class="qty">
-            <button type="button" aria-label="One less" (click)="changeQty(rowIndex, -1)">−</button>
-            <span>{{ row.entry.qty }}×</span>
-            <button type="button" aria-label="One more" (click)="changeQty(rowIndex, 1)">+</button>
-          </span>
-        </div>
-      </li>
-      }
-    </ul>
-  </section>
+            <div class="meta">
+              @if (row.card?.gathererUrl; as url) {
+                <a class="name" [href]="url" target="_blank" rel="noopener noreferrer" title="Open on Gatherer">{{
+                  row.card.printedName
+                }}</a>
+              } @else {
+                <strong class="name">{{ row.card?.printedName ?? row.entry.name }}</strong>
+              }
+              @if (row.card; as card) {
+                <span class="sub">
+                  {{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}
+                </span>
+                @if (card.gathererOnly) {
+                  <span
+                    class="only-gatherer"
+                    title="Scryfall does not list this print in this language: its name and image come from the Gatherer page"
+                  ><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall</span>
+                }
+                @if (isPinned(row)) {
+                  <span class="pinned">Version chosen by hand</span>
+                }
+                @if (card.requested && !card.requestedSetFound) {
+                  <span class="warn">{{ card.requested }} not available: another print was used</span>
+                }
+                @if (card.note) {
+                  <span class="warn">{{ card.note }}</span>
+                }
+              } @else if (row.message) {
+                <span class="warn">{{ row.message }}</span>
+              }
+              @if (row.state !== 'pending') {
+                <div class="versions">
+                  <button
+                    type="button"
+                    class="versions-toggle"
+                    aria-haspopup="listbox"
+                    [attr.aria-expanded]="openVersions() === rowIndex"
+                    [disabled]="row.switching"
+                    (click)="toggleVersions(rowIndex, $event)"
+                  >
+                    <span>{{ row.switching ? 'Checking Gatherer…' : row.card ? 'Other versions' : 'Choose a version' }}</span>
+                    <span aria-hidden="true">▾</span>
+                  </button>
+                  @if (openVersions() === rowIndex) {
+                    <div class="versions-panel" [class.left]="panelOnLeft()" [class.up]="panelUp()" [style.max-height.px]="panelUpMaxHeight()" role="listbox" aria-label="Versions">
+                      @for (group of versionGroups(row); track group.label) {
+                        <p class="group" role="presentation">{{ group.label }}</p>
+                        @for (option of group.options; track option.id) {
+                          <button
+                            type="button"
+                            role="option"
+                            class="option"
+                            [class.current]="option.id === row.card?.scryfallId"
+                            [attr.aria-selected]="option.id === row.card?.scryfallId"
+                            [disabled]="option.disabled"
+                            (click)="chooseVersion(rowIndex, option.id)"
+                          >
+                            <span class="title">{{ option.title }}</span>
+                            <span class="detail">
+                              {{ option.detail }}
+                              @if (option.status) {
+                                <span class="status" [class.bad]="option.disabled">· {{ option.status }}</span>
+                              }
+                            </span>
+                          </button>
+                        }
+                      }
+                      @if (row.versionsState === 'loading') {
+                        <p class="hint">Loading versions…</p>
+                      } @else if (row.versionsState === 'error') {
+                        <p class="hint">
+                          Versions not available.
+                          <button type="button" class="link" (click)="loadVersions(rowIndex)">Try again</button>
+                        </p>
+                      } @else if (row.versionsState === 'loaded' && row.versions?.length === 0) {
+                        <p class="hint">No other versions.</p>
+                      }
+                    </div>
+                  }
+                  @if (canSearchGatherer(row)) {
+                    <button
+                      type="button"
+                      class="link search-gatherer"
+                      [disabled]="row.searching || row.switching"
+                      [title]="searchGathererTitle(row)"
+                      (click)="searchGatherer(rowIndex, $event)"
+                    >
+                      {{ row.searching ? 'Searching Gatherer…' : 'Find more ' + resolvedLangName() + ' versions on Gatherer' }}
+                    </button>
+                  }
+                </div>
+                @if (row.searchNote) {
+                  <span class="sub">{{ row.searchNote }}</span>
+                }
+                @if (row.versionError; as message) {
+                  <span class="warn">{{ message }}</span>
+                }
+              }
+              <span class="qty">
+                <button type="button" aria-label="One less" (click)="changeQty(rowIndex, -1)">−</button>
+                <span>{{ row.entry.qty }}×</span>
+                <button type="button" aria-label="One more" (click)="changeQty(rowIndex, 1)">+</button>
+              </span>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
   }
 </main>
 
 <dialog #zoomDialog class="zoom" aria-label="Enlarged card" (close)="zoomed.set(null)" (click)="onZoomClick($event)">
   @if (zoomed(); as card) {
-  <div class="zoom-body">
-    <div class="zoom-images">
-      @for (file of card.images; track file) {
-      <img [src]="imageUrl(file)" [alt]="card.printedName">
-      }
+    <div class="zoom-body">
+      <div class="zoom-images">
+        @for (file of card.images; track file) {
+          <img [src]="imageUrl(file)" [alt]="card.printedName">
+        }
+      </div>
+      <p class="zoom-caption">
+        <strong>{{ card.printedName }}</strong>
+        <span>{{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}</span>
+        @if (card.gathererOnly) {
+          <span class="only-gatherer"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall: name and image from Gatherer</span>
+        }
+      </p>
+      <button type="button" class="zoom-close" aria-label="Close" (click)="closeZoom()">×</button>
     </div>
-    <p class="zoom-caption">
-      <strong>{{ card.printedName }}</strong>
-      <span>{{ card.setCode.toUpperCase() }} #{{ card.collectorNumber }} · {{ card.lang.toUpperCase() }}</span>
-      @if (card.gathererOnly) {
-      <span class="only-gatherer"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true">
-          <circle cx="8" cy="8" r="7" />
-          <path d="M8 7v4.5M8 4.6v.1" />
-        </svg>Not on Scryfall: name and image from Gatherer</span>
-      }
-    </p>
-    <button type="button" class="zoom-close" aria-label="Close" (click)="closeZoom()">×</button>
-  </div>
   }
 </dialog>
 
