@@ -33,7 +33,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   executable will add another source" — `AssetSource` exists), `server/src/types.ts` **and**
   `web/src/app/api-types.ts` together (`scryfallId` / `DeckEntry.printId` do not mention the `gatherer:…` id;
   `web/test/api-types.test.ts` requires the two files to stay identical). Risk: low. Benefit: readability.
-- [ ] **A3. `index.ts` style** — `server/src/index.ts`: a double blank line (l. 90–91) and `import { isSea } from
+- [x] **A3. `index.ts` style** — `server/src/index.ts`: a double blank line (l. 90–91) and `import { isSea } from
   'node:sea'` sitting among the local imports instead of with the `node:` ones. Risk: low.
 - [ ] **A4. Re-indent `app.html`** — `web/src/app/app.html`. The last commit went through an editor formatter that
   does not know Angular control flow: the children of every `@if` / `@for` lost their indentation and a few long

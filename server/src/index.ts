@@ -4,6 +4,7 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'node:http';
 import type { Server } from 'node:http';
+import { isSea } from 'node:sea';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { createHandler } from './app.ts';
@@ -22,7 +23,6 @@ import { Http } from './http.ts';
 import { Lists } from './lists.ts';
 import { Resolver } from './resolver.ts';
 import { Scryfall } from './scryfall.ts';
-import { isSea } from 'node:sea';
 import { embeddedWebApp } from './sea.ts';
 import { FolderSource } from './static.ts';
 import { Updates } from './updates.ts';
@@ -87,7 +87,6 @@ function listen(server: Server, port: number): Promise<number> {
     tryListen();
   });
 }
-
 
 /** Folder of the program: the executable's, or the repository root when run from the sources. */
 function appDir(): string {
