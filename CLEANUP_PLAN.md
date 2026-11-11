@@ -28,7 +28,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 - [x] **A1. Remove `APP_NAME`** — `server/src/config.ts`. Exported constant, used nowhere (not even by the scripts).
   Risk: low. Benefit: dead code gone.
-- [ ] **A2. Fix comments that are out of date** — `server/src/app.ts` (`PRINT_ID` says "a Scryfall id, or
+- [x] **A2. Fix comments that are out of date** — `server/src/app.ts` (`PRINT_ID` says "a Scryfall id, or
   `<id>:<lang>`": it also accepts `gatherer:…` ids now), `server/src/static.ts` (`StaticSource`: "the standalone
   executable will add another source" — `AssetSource` exists), `server/src/types.ts` **and**
   `web/src/app/api-types.ts` together (`scryfallId` / `DeckEntry.printId` do not mention the `gatherer:…` id;

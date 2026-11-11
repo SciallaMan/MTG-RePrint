@@ -5,7 +5,10 @@ export interface DeckEntry {
   name: string;
   setCode: string | null;
   number: string | null;
-  /** Id of a print chosen by hand (see `ResolvedCard.scryfallId`): used as is when Gatherer still has its images. */
+  /**
+   * Id of a print chosen by hand (see `ResolvedCard.scryfallId`): used as is when Gatherer still has its images.
+   * For a card given by its Gatherer link it is "gatherer:<SET>/<lang>/<number>[/<slug>]", the page to read.
+   */
   printId?: string | null;
 }
 
@@ -27,8 +30,9 @@ export interface ResolveRequest {
 
 export interface ResolvedCard {
   /**
-   * Scryfall id of the print, or "<id>:<lang>" for a translation that only Gatherer has: the
-   * Scryfall id of the English print and the language of the Gatherer page.
+   * Scryfall id of the print; "<id>:<lang>" for a translation that only Gatherer has (the Scryfall
+   * id of the English print and the language of the Gatherer page); "gatherer:<SET>/<lang>/<number>[/<slug>]"
+   * for a card given by the link of its Gatherer page.
    */
   scryfallId: string;
   /** English name (Scryfall). */

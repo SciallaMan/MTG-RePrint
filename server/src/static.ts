@@ -6,7 +6,7 @@ export interface StaticFile {
   contentType: string;
 }
 
-/** Where the web app files come from (a folder here; the standalone executable will add another source). */
+/** Where the web app files come from: a folder (`FolderSource`) or the assets of the executable (`AssetSource`). */
 export interface StaticSource {
   get(urlPath: string): Promise<StaticFile | null>;
 }
