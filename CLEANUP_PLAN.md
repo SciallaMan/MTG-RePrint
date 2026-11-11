@@ -98,7 +98,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 ### E. Complexity (needs care: little or no test coverage)
 
-- [ ] **E1. Split `addCard()` in the web component** — `web/src/app/app.ts`. ~70 lines, with a nested event
+- [x] **E1. Split `addCard()` in the web component** — `web/src/app/app.ts`. ~70 lines, with a nested event
   callback that writes to `gen` and `target` from the outer scope. Extract the `start`-event part into
   `insertAddedEntries(entries): number[]` (returns the target rows) so `addCard` reads top to bottom. **No tests
   cover the component**: after the change, a manual check in the browser (add a new card, add a card already in the

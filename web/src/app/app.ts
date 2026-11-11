@@ -344,33 +344,8 @@ export class App {
           if (gen !== this.generation) return controller.abort();
           if (event.type === 'start') {
             if (event.entries.length === 0) return this.error.set(`No card in "${line}".`);
-            const added = addEntries(
-              this.rows().map((r) => r.entry),
-              event.entries,
-            );
-            target = added.target;
-            const old = this.rows().map((row, i) => ({ ...row, entry: added.entries[i] ?? row.entry }));
-            if (added.added.length === 0) {
-              this.rows.set(old);
-            } else {
-              // the rows move down: work still running on them would patch the wrong row, so it is
-              // dropped (as for a new search) and its "in progress" marks are cleared
-              this.generation++;
-              gen = this.generation;
-              this.closeVersions();
-              this.rows.set([
-                ...added.added.map((entry): Row => ({ entry, state: 'pending' })),
-                ...old.map(
-                  (row): Row => ({
-                    ...row,
-                    switching: false,
-                    searching: false,
-                    versionsState: row.versionsState === 'loading' ? undefined : row.versionsState,
-                  }),
-                ),
-              ]);
-            }
-            this.prependToDecklist(toDecklist(event.entries));
+            target = this.insertEntries(event.entries);
+            gen = this.generation; // a new one when rows were added
             this.addText.set('');
             if (target.every((t) => t < 0)) controller.abort(); // only quantities changed: nothing to look up
           } else if (event.type === 'card') {
@@ -390,6 +365,40 @@ export class App {
         this.addAbort = null;
       }
     }
+  }
+
+  /**
+   * Put entries at the top of the list (a card already there gets the quantity instead) and at the
+   * top of the decklist text. Returns the row of each entry, or -1 for one merged into an existing
+   * row. When rows are added, the others move down: work still running on them would patch the
+   * wrong row, so it is dropped (a new `generation`, as for a new search) and its "in progress"
+   * marks are cleared.
+   */
+  private insertEntries(entries: DeckEntry[]): number[] {
+    const added = addEntries(
+      this.rows().map((r) => r.entry),
+      entries,
+    );
+    const old = this.rows().map((row, i) => ({ ...row, entry: added.entries[i] ?? row.entry }));
+    if (added.added.length === 0) {
+      this.rows.set(old);
+    } else {
+      this.generation++;
+      this.closeVersions();
+      this.rows.set([
+        ...added.added.map((entry): Row => ({ entry, state: 'pending' })),
+        ...old.map(
+          (row): Row => ({
+            ...row,
+            switching: false,
+            searching: false,
+            versionsState: row.versionsState === 'loading' ? undefined : row.versionsState,
+          }),
+        ),
+      ]);
+    }
+    this.prependToDecklist(toDecklist(entries));
+    return added.target;
   }
 
   private stopAdding(): void {
