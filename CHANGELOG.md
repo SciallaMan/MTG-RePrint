@@ -6,7 +6,8 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ### Added
 
-- **Add a card**, above the cards found: type one card (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and only that card is looked up and added at the end, without searching the whole list again. It also goes at the end of the decklist text, so an open saved list can be grown one card at a time and saved. A card already in the list (same name, set and number) gets the quantity added instead.
+- **Add a card**, above the cards found: type one card (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and only that card is looked up and added at the top, without searching the whole list again. It also goes at the top of the decklist text, so an open saved list can be grown one card at a time and saved. A card already in the list (same name, set and number) gets the quantity added instead.
+- A card can be given by the link of its Gatherer page (`2 https://gatherer.wizards.com/M3C/it-it/6/cayth-famed-mechanist`), in **Add a card** or in the decklist, for the cards that the app does not find although Gatherer has them. The image is read from that page; the card counts as a version chosen by hand and saved lists keep the link.
 
 ## [0.4.2]
 

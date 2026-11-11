@@ -68,7 +68,9 @@ Card names are English (the Scryfall name), whatever language you want the print
 
 Each card has a versions panel (**Other versions**) to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under **Other versions** on each card, looks for them three prints at a time and adds what it finds to the panel.
 
-To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the end, and at the end of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
+To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the top, and at the top of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
+
+When the app does not find a card that you can see on Gatherer, paste the address of its Gatherer page instead, with a quantity before it if you like: `2 https://gatherer.wizards.com/M3C/it-it/6/cayth-famed-mechanist`. The image comes from that very page, the card data from Scryfall when it has that print. The card is marked "Version chosen by hand", is saved that way in a list, and stays a link in the decklist text. A link works in the decklist box too.
 
 ## Saved lists
 

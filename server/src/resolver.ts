@@ -5,7 +5,8 @@ import {
   MAX_PRINTS_TRIED,
   TWO_FACED_LAYOUTS,
 } from './config.ts';
-import type { FoundImages, Gatherer } from './gatherer.ts';
+import type { FoundImages, Gatherer, GathererLink } from './gatherer.ts';
+import { parseGathererLinkId } from './gatherer.ts';
 import { isNamed } from './scryfall.ts';
 import type { Scryfall, ScryfallCard } from './scryfall.ts';
 import { scryfallSetCode } from './setcodes.ts';
@@ -254,6 +255,8 @@ export class Resolver {
    * translation id ("<id>:<lang>") is looked up on Gatherer in that language.
    */
   async print(id: string): Promise<{ card: ScryfallCard | null; images: FoundImages | null; reasons: string[] }> {
+    const link = parseGathererLinkId(id);
+    if (link) return this.fromLink(link, id);
     const reasons: string[] = [];
     const wanted = parseTranslationId(id);
     const card = await this.scryfall.byId(wanted?.id ?? id);
@@ -264,6 +267,52 @@ export class Resolver {
     reasons.push(`${card.set.toUpperCase()}/${card.collector_number}: no ${wanted.lang.toUpperCase()} page on Gatherer`);
     return { card: { ...card, id }, images: null, reasons };
   }
+
+  /**
+   * A print given by its Gatherer link (id from `gathererLinkId`): the image is read from that very
+   * page; the data comes from Scryfall (same set and number, in the page's language, else in
+   * English), or from the page alone when Scryfall does not have the print. A double-faced card
+   * whose print Scryfall lists in that language gets both faces through the multiverseid.
+   */
+  private async fromLink(link: GathererLink, id: string): Promise<{ card: ScryfallCard; images: FoundImages | null; reasons: string[] }> {
+    const reasons: string[] = [];
+    const lang = Object.entries(GATHERER_LANG).find(([, code]) => code === link.lang)?.[0] ?? 'en';
+    const set = scryfallSetCode(link.set);
+    const inLang = await this.scryfall.bySetNumber(set, link.number, lang);
+    const english = inLang ?? (lang === 'en' ? null : await this.scryfall.bySetNumber(set, link.number));
+    const base = inLang ?? english;
+    const twoFaced = TWO_FACED_LAYOUTS.has(base?.layout ?? '');
+    if (inLang && twoFaced) {
+      const images = await this.gatherer.imagesFor(inLang, reasons);
+      if (images && !images.incomplete) return { card: { ...inLang, id }, images, reasons };
+    }
+    const page = await this.gatherer.imageFromLink(link);
+    const card: ScryfallCard = inLang
+      ? { ...inLang, id }
+      : {
+          ...(english ?? { name: nameFromSlug(link.slug) || link.number, set, collector_number: link.number }),
+          id,
+          lang,
+          printed_name: page.file !== null ? (page.printedName ?? undefined) : undefined,
+          card_faces: undefined,
+          multiverse_ids: undefined,
+        };
+    if (page.file === null) {
+      reasons.push(page.reason);
+      return { card, images: null, reasons };
+    }
+    const images: FoundImages = { files: [page.file], source: `Gatherer link ${link.set}/${link.lang}/${link.number}`, incomplete: twoFaced };
+    return { card, images, reasons };
+  }
+}
+
+/** English name from the slug of a Gatherer link, when Scryfall does not know the print ("fable-of-the" -> "Fable Of The"). */
+function nameFromSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 /** Id of a translation that only Gatherer has: the Scryfall id of the English print and the language. */

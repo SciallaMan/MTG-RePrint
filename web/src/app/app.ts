@@ -311,9 +311,9 @@ export class App {
   }
 
   /**
-   * "Add card": look up the card(s) of the line and put them at the end of the list, without
+   * "Add card": look up the card(s) of the line and put them at the top of the list, without
    * searching the whole list again. A card already in the list (same name, set and number) gets
-   * the quantity instead. The line also goes at the end of the decklist text.
+   * the quantity instead. The line also goes at the top of the decklist text.
    */
   protected async addCard(): Promise<void> {
     const line = this.addText().trim();
@@ -321,7 +321,7 @@ export class App {
     this.stopAdding();
     const controller = new AbortController();
     this.addAbort = controller;
-    const gen = this.generation;
+    let gen = this.generation;
     this.error.set(null);
     this.notice.set(null);
     this.adding.set(true);
@@ -340,11 +340,28 @@ export class App {
               event.entries,
             );
             target = added.target;
-            this.rows.update((rows) => [
-              ...rows.map((row, i) => ({ ...row, entry: added.entries[i] ?? row.entry })),
-              ...added.entries.slice(rows.length).map((entry) => ({ entry, state: 'pending' as const })),
-            ]);
-            this.appendToDecklist(toDecklist(event.entries));
+            const old = this.rows().map((row, i) => ({ ...row, entry: added.entries[i] ?? row.entry }));
+            if (added.added.length === 0) {
+              this.rows.set(old);
+            } else {
+              // the rows move down: work still running on them would patch the wrong row, so it is
+              // dropped (as for a new search) and its "in progress" marks are cleared
+              this.generation++;
+              gen = this.generation;
+              this.closeVersions();
+              this.rows.set([
+                ...added.added.map((entry): Row => ({ entry, state: 'pending' })),
+                ...old.map(
+                  (row): Row => ({
+                    ...row,
+                    switching: false,
+                    searching: false,
+                    versionsState: row.versionsState === 'loading' ? undefined : row.versionsState,
+                  }),
+                ),
+              ]);
+            }
+            this.prependToDecklist(toDecklist(event.entries));
             this.addText.set('');
             if (target.every((t) => t < 0)) controller.abort(); // only quantities changed: nothing to look up
           } else if (event.type === 'card') {
@@ -378,10 +395,10 @@ export class App {
     this.adding.set(false);
   }
 
-  /** Lines added to the list also go in its text; an open list whose text was unchanged stays in step. */
-  private appendToDecklist(lines: string): void {
+  /** Lines added to the list also go at the top of its text; an open list whose text was unchanged stays in step. */
+  private prependToDecklist(lines: string): void {
     const before = this.decklist();
-    const text = [before.trimEnd(), lines].filter(Boolean).join('\n');
+    const text = [lines, before.trim()].filter(Boolean).join('\n');
     this.decklist.set(text);
     if (this.listSource && this.listSource.text === before) this.listSource = { ...this.listSource, text };
   }

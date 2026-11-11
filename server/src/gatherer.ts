@@ -80,6 +80,50 @@ export function gathererLink(card: ScryfallCard): string | null {
   return slug ? `${base}/${slug}` : base;
 }
 
+/** A card page on Gatherer, as the user gave it: SET (Gatherer's code), language ("it-it"), number, slug. */
+export interface GathererLink {
+  set: string;
+  lang: string;
+  number: string;
+  slug: string;
+}
+
+const GATHERER_LINK =
+  /^(?:https?:\/\/)?(?:www\.)?gatherer\.wizards\.com\/([A-Za-z0-9]{1,8})\/([A-Za-z]{2}-[A-Za-z]{2})\/([\w-]{1,20})(?:\/([^/?#\s]{0,150}))?\/?(?:[?#]\S*)?$/;
+const LINK_ID_PREFIX = 'gatherer:';
+const GATHERER_LANGS = new Set(Object.values(GATHERER_LANG));
+
+/**
+ * The card page of a Gatherer link ("https://gatherer.wizards.com/NEO/it-it/141/fable-of-the-mirror-breaker"),
+ * or null when the text is not one (or names a language Gatherer does not have).
+ */
+export function parseGathererLink(text: string): GathererLink | null {
+  const m = GATHERER_LINK.exec(text.trim());
+  const lang = (m?.[2] ?? '').toLowerCase();
+  if (!m || !GATHERER_LANGS.has(lang)) return null;
+  const slug = safeDecode(m[4] ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  return { set: (m[1] ?? '').toUpperCase(), lang, number: m[3] ?? '', slug };
+}
+
+/**
+ * Print id of a card given by its Gatherer link: "gatherer:" and the path of the page
+ * ("gatherer:NEO/it-it/141/fable-of-the-mirror-breaker"). Accepted wherever a print id is.
+ */
+export function gathererLinkId(link: GathererLink): string {
+  return `${LINK_ID_PREFIX}${link.set}/${link.lang}/${link.number}${link.slug ? `/${link.slug}` : ''}`;
+}
+
+/** The Gatherer link of a print id made by `gathererLinkId`, or null for the other ids. */
+export function parseGathererLinkId(id: string): GathererLink | null {
+  return id.startsWith(LINK_ID_PREFIX) ? parseGathererLink(`gatherer.wizards.com/${id.slice(LINK_ID_PREFIX.length)}`) : null;
+}
+
+/** Address of the page of a Gatherer link. */
+export function gathererLinkUrl(link: GathererLink): string {
+  const base = gathererPageUrl(link.set, link.lang, link.number);
+  return link.slug ? `${base}/${link.slug}` : base;
+}
+
 /** Content of <meta property="..." content="...">. */
 export function metaContent(html: string, prop: string): string | null {
   for (const tag of html.match(/<meta\b[^>]*>/g) ?? []) {
@@ -177,44 +221,73 @@ export class Gatherer {
     const slug = gathererSlug(card.name);
     const urls = slug ? (remember ? [`${base}/${slug}`] : [`${base}/${slug}`, base]) : [base];
     for (const url of urls) {
-      const key = this.cache.jsonKey('gatherer-page', { url });
-      let memo: PageMemo | null = null;
-      if (remember) {
-        const entry = await this.cache.readJson(key);
-        const maxAge = (entry?.value as PageMemo | undefined)?.rid ? 0 : MISSING_PAGE_MAX_AGE_MS;
-        if (entry && !this.cache.isStale(entry, key, maxAge)) memo = entry.value as PageMemo;
-      }
-      if (memo && !memo.rid) continue;
-      if (memo?.rid) {
-        const file = await this.imageById(memo.rid);
-        if (file) return { file, label, printedName: memo.printedName };
-        continue;
-      }
-      let res: Response;
-      try {
-        res = await this.http.get(url, 'gatherer', { attempts: 3 });
-      } catch {
-        return { file: null, reason: `${label}: network error` };
-      }
-      if (res.status === 401 || res.status === 403) {
-        this.pagesBlockedUntil = this.now() + RETRY_AFTER_MS;
-        return { file: null, reason: `${label}: page refused (HTTP ${res.status})` };
-      }
-      if (!res.ok) {
-        await res.arrayBuffer().catch(() => undefined);
-        if (remember && res.status === 404) await this.cache.writeJson(key, { rid: null, printedName: null });
-        continue;
-      }
-      const html = await res.text();
-      const rid = imageIdFromPage(html, setCode, lang, num);
-      const printedName = printedNameFromPage(html);
-      if (remember) await this.cache.writeJson(key, { rid, printedName });
-      if (!rid) continue;
-      const file = await this.imageById(rid);
-      if (file) return { file, label, printedName };
-      return { file: null, reason: `${label}: image ${rid.slice(0, 8)}... could not be downloaded` };
+      const page = await this.readPage(url, setCode, lang, num, remember);
+      if (page) return page;
     }
     return { file: null, reason: `${label}: no page on Gatherer` };
+  }
+
+  /**
+   * One Gatherer page and its image. Null when there is nothing there (no page, or not that print):
+   * the caller tries the next address. With `remember`, what the page gave is kept on disk; with
+   * `rememberMisses` false, only an image found (a page without one is asked again next time).
+   */
+  private async readPage(
+    url: string,
+    setCode: string,
+    lang: string,
+    num: string,
+    remember: boolean,
+    rememberMisses = remember,
+  ): Promise<PageResult | null> {
+    const label = `${setCode}/${lang}/${num}`;
+    const key = this.cache.jsonKey('gatherer-page', { url });
+    let memo: PageMemo | null = null;
+    if (remember) {
+      const entry = await this.cache.readJson(key);
+      const maxAge = (entry?.value as PageMemo | undefined)?.rid ? 0 : MISSING_PAGE_MAX_AGE_MS;
+      if (entry && !this.cache.isStale(entry, key, maxAge)) memo = entry.value as PageMemo;
+    }
+    if (memo && !memo.rid && rememberMisses) return null;
+    if (memo?.rid) {
+      const file = await this.imageById(memo.rid);
+      return file ? { file, label, printedName: memo.printedName } : null;
+    }
+    let res: Response;
+    try {
+      res = await this.http.get(url, 'gatherer', { attempts: 3 });
+    } catch {
+      return { file: null, reason: `${label}: network error` };
+    }
+    if (res.status === 401 || res.status === 403) {
+      this.pagesBlockedUntil = this.now() + RETRY_AFTER_MS;
+      return { file: null, reason: `${label}: page refused (HTTP ${res.status})` };
+    }
+    if (!res.ok) {
+      await res.arrayBuffer().catch(() => undefined);
+      if (rememberMisses && res.status === 404) await this.cache.writeJson(key, { rid: null, printedName: null });
+      return null;
+    }
+    const html = await res.text();
+    const rid = imageIdFromPage(html, setCode, lang, num);
+    const printedName = printedNameFromPage(html);
+    if (remember && (rid || rememberMisses)) await this.cache.writeJson(key, { rid, printedName });
+    if (!rid) return null;
+    const file = await this.imageById(rid);
+    if (file) return { file, label, printedName };
+    return { file: null, reason: `${label}: image ${rid.slice(0, 8)}... could not be downloaded` };
+  }
+
+  /**
+   * The image of the page of a Gatherer link given by the user, read from that exact address
+   * (whatever the slug). Only the front face: the page shows one image.
+   */
+  async imageFromLink(link: GathererLink): Promise<{ file: string; printedName: string | null } | { file: null; reason: string }> {
+    const label = `${link.set}/${link.lang}/${link.number}`;
+    if (this.pagesBlockedUntil > this.now()) return { file: null, reason: `${label}: Gatherer is refusing pages, try again later` };
+    const page = await this.readPage(gathererLinkUrl(link), link.set, link.lang, link.number, true, false);
+    if (page && page.file !== null) return { file: page.file, printedName: page.printedName };
+    return { file: null, reason: page?.reason ?? `${label}: no card image on this Gatherer page` };
   }
 
   /** Download the image with this Gatherer image code (PNG, else WebP). */

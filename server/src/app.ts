@@ -37,7 +37,8 @@ const MAX_LIST_NAME = 100;
 const LANG = /^[a-z]{2,3}$/;
 const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
 /** A Scryfall id, or "<id>:<lang>" for a translation that only Gatherer has. */
-const PRINT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[a-z]{2,3})?$/;
+const PRINT_ID =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[a-z]{2,3})?|gatherer:[A-Z0-9]{1,8}\/[a-z]{2}-[a-z]{2}\/[\w-]{1,20}(\/[a-z0-9-]{1,150})?)$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 const NOT_BUILT_PAGE = `<!doctype html><meta charset="utf-8"><title>MTG RePrint</title>

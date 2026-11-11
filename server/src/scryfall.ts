@@ -131,6 +131,12 @@ export class Scryfall {
     return this.getJson<ScryfallCard>(`/cards/${encodeURIComponent(id)}`, {});
   }
 
+  /** One print, by set code and collector number (in `lang`; English if not given). */
+  bySetNumber(setCode: string, number: string, lang?: string): Promise<ScryfallCard | null> {
+    const path = `/cards/${encodeURIComponent(setCode.toLowerCase())}/${encodeURIComponent(number)}`;
+    return this.getJson<ScryfallCard>(lang ? `${path}/${encodeURIComponent(lang)}` : path, {});
+  }
+
   /** Approximate name lookup (last resort). */
   named(match: 'exact' | 'fuzzy', name: string): Promise<ScryfallCard | null> {
     return this.getJson<ScryfallCard>('/cards/named', { [match]: name });

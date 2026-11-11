@@ -2,7 +2,7 @@ import { BASIC_LANDS } from './config.ts';
 import { parseDecklist } from './decklist.ts';
 import { explain, parseTranslationId } from './resolver.ts';
 import type { FoundImages } from './gatherer.ts';
-import { gathererLink } from './gatherer.ts';
+import { gathererLink, gathererLinkUrl, parseGathererLink, parseGathererLinkId } from './gatherer.ts';
 import type { Resolver } from './resolver.ts';
 import { printedName, scryfallUrl } from './scryfall.ts';
 import type { ScryfallCard } from './scryfall.ts';
@@ -32,9 +32,29 @@ export function toResolvedCard(
     note: [extra.langNote, images.incomplete ? INCOMPLETE_NOTE : null].filter(Boolean).join('; ') || null,
     incomplete: images.incomplete,
     gathererOnly: parseTranslationId(card.id) !== null,
-    gathererUrl: gathererLink(card),
+    gathererUrl: linkUrl(card.id) ?? gathererLink(card),
     scryfallUrl: scryfallUrl(card),
   };
+}
+
+function linkUrl(id: string): string | null {
+  const link = parseGathererLinkId(id);
+  return link ? gathererLinkUrl(link) : null;
+}
+
+/**
+ * A line that was a Gatherer link gets the card's name, set and number (the link stays its
+ * `printId`), so the list shows and saves it like the others. Unchanged if the link gives nothing.
+ */
+async function nameLinkEntry(print: (id: string) => ReturnType<Resolver['print']>, entry: DeckEntry): Promise<DeckEntry> {
+  if (!entry.printId || !parseGathererLinkId(entry.printId) || !parseGathererLink(entry.name)) return entry;
+  try {
+    const { card, images } = await print(entry.printId);
+    if (!card || !images) return entry;
+    return { ...entry, name: card.name, setCode: card.set, number: card.collector_number };
+  } catch {
+    return entry;
+  }
 }
 
 /** Resolve every card of a decklist, reporting each result as soon as it is known. */
@@ -45,12 +65,21 @@ export async function resolveDeck(
   signal?: AbortSignal,
 ): Promise<void> {
   const pins = request.pins ?? {};
-  const entries = (request.entries ?? parseDecklist(request.decklist))
-    .filter((e) => !(request.skipBasicLands && BASIC_LANDS.has(e.name.toLowerCase())))
-    .map((e): DeckEntry => {
-      const pin = pins[e.name.toLowerCase()];
-      return pin && !e.printId && !e.setCode && !e.number ? { ...e, printId: pin } : e;
-    });
+  // the prints of the Gatherer links are looked up once, to name their lines and to show them
+  const links = new Map<string, ReturnType<Resolver['print']>>();
+  const print = (id: string): ReturnType<Resolver['print']> => {
+    if (!parseGathererLinkId(id)) return resolver.print(id);
+    const known = links.get(id) ?? resolver.print(id);
+    links.set(id, known);
+    return known;
+  };
+  const entries: DeckEntry[] = [];
+  for (const e of request.entries ?? parseDecklist(request.decklist)) {
+    if (request.skipBasicLands && BASIC_LANDS.has(e.name.toLowerCase())) continue;
+    const pin = pins[e.name.toLowerCase()];
+    entries.push(pin && !e.printId && !e.setCode && !e.number ? { ...e, printId: pin } : await nameLinkEntry(print, e));
+    if (signal?.aborted) return;
+  }
   emit({ type: 'start', entries });
 
   let found = 0;
@@ -65,7 +94,7 @@ export async function resolveDeck(
       let pinLost = false;
       if (entry.printId) {
         // a print chosen by hand (saved list): used as is, unless Gatherer no longer has it
-        const pinned = await resolver.print(entry.printId);
+        const pinned = await print(entry.printId);
         if (pinned.card && pinned.images) {
           const card = toResolvedCard(pinned.card, pinned.images, {
             requestedLang: request.lang,
@@ -75,6 +104,13 @@ export async function resolveDeck(
           });
           found++;
           emit({ type: 'card', index, status: 'ok', card });
+          continue;
+        }
+        if (parseGathererLink(entry.name)) {
+          // a Gatherer link that gives no card: there is no name to look for instead
+          failed++;
+          const why = [...new Set(pinned.reasons)].join('; ') || 'no card on this Gatherer page';
+          emit({ type: 'card', index, status: 'not_found', message: `Gatherer link: ${why}` });
           continue;
         }
         pinLost = true;

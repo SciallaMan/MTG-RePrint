@@ -13,8 +13,10 @@ test('a saved list becomes decklist text; quantity 0 lines are left out', () => 
       { qty: 1, name: 'Ponder', setCode: 'm12', number: null },
       { qty: 0, name: 'Island', setCode: null, number: null },
       { qty: 4, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
+      { qty: 2, name: 'Cayth, Famed Mechanist', setCode: 'm3c', number: '6', printId: 'gatherer:M3C/it-it/6/cayth-famed-mechanist' },
     ]),
-    '2 Fable of the Mirror-Breaker (NEO) 141\n1 Eluge, the Shoreless Sea #49\n1 Ponder (M12)\n4 Lightning Bolt',
+    '2 Fable of the Mirror-Breaker (NEO) 141\n1 Eluge, the Shoreless Sea #49\n1 Ponder (M12)\n4 Lightning Bolt\n' +
+      '2 https://gatherer.wizards.com/M3C/it-it/6/cayth-famed-mechanist',
   );
 });
 
@@ -29,8 +31,8 @@ test('pins are keyed by lower-case name; the first print of a name wins', () => 
   );
 });
 
-test('added cards go at the end; the same card again raises its quantity', () => {
-  const { entries, target } = addEntries(
+test('added cards go at the top, in their order; the same card again raises its quantity', () => {
+  const result = addEntries(
     [
       { qty: 2, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
       { qty: 1, name: 'Ponder', setCode: 'm12', number: null },
@@ -38,13 +40,20 @@ test('added cards go at the end; the same card again raises its quantity', () =>
     [
       { qty: 3, name: 'lightning bolt', setCode: null, number: null },
       { qty: 1, name: 'Ponder', setCode: null, number: null },
+      { qty: 1, name: 'Counterspell', setCode: 'mh2', number: '267' },
       { qty: 98, name: 'Ponder', setCode: 'M12', number: null },
+      { qty: 2, name: 'ponder', setCode: null, number: null },
     ],
   );
-  assert.deepEqual(entries, [
-    { qty: 5, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
-    { qty: 99, name: 'Ponder', setCode: 'm12', number: null },
-    { qty: 1, name: 'Ponder', setCode: null, number: null },
-  ]);
-  assert.deepEqual(target, [-1, 2, -1]);
+  assert.deepEqual(result, {
+    added: [
+      { qty: 3, name: 'Ponder', setCode: null, number: null },
+      { qty: 1, name: 'Counterspell', setCode: 'mh2', number: '267' },
+    ],
+    entries: [
+      { qty: 5, name: 'Lightning Bolt', setCode: null, number: null, printId: ID1 },
+      { qty: 99, name: 'Ponder', setCode: 'm12', number: null },
+    ],
+    target: [-1, 0, 1, -1, -1],
+  });
 });

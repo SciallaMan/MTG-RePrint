@@ -1,10 +1,15 @@
+import { gathererLinkId, gathererLinkUrl, parseGathererLink } from './gatherer.ts';
 import type { DeckEntry } from './types.ts';
 
 const SECTION_NAMES = new Set([
   'sideboard', 'maybeboard', 'commander', 'companion', 'deck', 'mainboard', 'main', 'maindeck', 'side',
 ]);
 
-/** Parse a decklist (Moxfield/Archidekt exports are accepted) into entries. */
+/**
+ * Parse a decklist (Moxfield/Archidekt exports are accepted) into entries. A line may also be the
+ * link of a card page on Gatherer ("2 https://gatherer.wizards.com/NEO/it-it/141/..."): the entry
+ * is named by the link, and its `printId` is that page (see `gathererLinkId`).
+ */
 export function parseDecklist(text: string): DeckEntry[] {
   const entries: DeckEntry[] = [];
   for (const raw of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
@@ -20,6 +25,11 @@ export function parseDecklist(text: string): DeckEntry[] {
     if (q) {
       qty = Number(q[1]);
       name = q[2] ?? '';
+    }
+    const link = parseGathererLink(name);
+    if (link) {
+      if (qty > 0) entries.push({ qty, name: gathererLinkUrl(link), setCode: null, number: null, printId: gathererLinkId(link) });
+      continue;
     }
     // a trailing "(SET) 123" or "(SET) #123" (set and number); "*F*" markers are ignored
     let setCode: string | null = null;
