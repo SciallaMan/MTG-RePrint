@@ -7,7 +7,7 @@ import type { Resolver } from './resolver.ts';
 import type { StaticSource } from './static.ts';
 import { contentTypeFor } from './static.ts';
 import { withPriority } from './http.ts';
-import { LIST_ID } from './lists.ts';
+import { LIST_ID, UUID } from './lists.ts';
 import type { Lists } from './lists.ts';
 import type { Updates } from './updates.ts';
 import type {
@@ -40,8 +40,7 @@ const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
  * A Scryfall id, "<id>:<lang>" for a translation that only Gatherer has, or "gatherer:<SET>/<lang>/<number>[/<slug>]"
  * for a print given by its Gatherer page (see `gathererLinkId`).
  */
-const PRINT_ID =
-  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[a-z]{2,3})?|gatherer:[A-Z0-9]{1,8}\/[a-z]{2}-[a-z]{2}\/[\w-]{1,20}(\/[a-z0-9-]{1,150})?)$/;
+const PRINT_ID = new RegExp(`^(?:${UUID}(:[a-z]{2,3})?|gatherer:[A-Z0-9]{1,8}/[a-z]{2}-[a-z]{2}/[\\w-]{1,20}(/[a-z0-9-]{1,150})?)$`);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const MAX_NAME = 200;
 

@@ -3,8 +3,10 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/pro
 import path from 'node:path';
 import type { DeckEntry, SaveWishlistRequest, Wishlist, WishlistSummary } from './types.ts';
 
+/** A UUID in lower case, as a regex source (Scryfall ids and list ids). */
+export const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 /** Ids of saved lists (also their file names, without ".json"). */
-export const LIST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const LIST_ID = new RegExp(`^${UUID}$`);
 
 /** Saved lists (wishlists): one JSON file per list, in a folder of their own. */
 export class Lists {
