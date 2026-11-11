@@ -281,23 +281,14 @@ export class Resolver {
     const set = scryfallSetCode(link.set);
     const inLang = await this.scryfall.bySetNumber(set, link.number, lang);
     const english = inLang ?? (lang === 'en' ? null : await this.scryfall.bySetNumber(set, link.number));
-    const base = inLang ?? english;
-    const twoFaced = TWO_FACED_LAYOUTS.has(base?.layout ?? '');
+    const twoFaced = TWO_FACED_LAYOUTS.has((inLang ?? english)?.layout ?? '');
     if (inLang && twoFaced) {
+      // both faces through the multiverseid: the page shows only the front
       const images = await this.gatherer.imagesFor(inLang, reasons);
       if (images && !images.incomplete) return { card: { ...inLang, id }, images, reasons };
     }
     const page = await this.gatherer.imageFromLink(link);
-    const card: ScryfallCard = inLang
-      ? { ...inLang, id }
-      : {
-          ...(english ?? { name: nameFromSlug(link.slug) || link.number, set, collector_number: link.number }),
-          id,
-          lang,
-          printed_name: page.file !== null ? (page.printedName ?? undefined) : undefined,
-          card_faces: undefined,
-          multiverse_ids: undefined,
-        };
+    const card = linkCard(link, id, lang, inLang, english, page.file !== null ? page.printedName : null);
     if (page.file === null) {
       reasons.push(page.reason);
       return { card, images: null, reasons };
@@ -305,6 +296,31 @@ export class Resolver {
     const images: FoundImages = { files: [page.file], source: `Gatherer link ${link.set}/${link.lang}/${link.number}`, incomplete: twoFaced };
     return { card, images, reasons };
   }
+}
+
+/**
+ * The card of a print given by its Gatherer link: the print in the page's language when Scryfall
+ * has it; else the English print (or just set and number, named from the slug) with the language
+ * and the printed name of the page.
+ */
+function linkCard(
+  link: GathererLink,
+  id: string,
+  lang: string,
+  inLang: ScryfallCard | null,
+  english: ScryfallCard | null,
+  printedName: string | null,
+): ScryfallCard {
+  if (inLang) return { ...inLang, id };
+  const set = scryfallSetCode(link.set);
+  return {
+    ...(english ?? { name: nameFromSlug(link.slug) || link.number, set, collector_number: link.number }),
+    id,
+    lang,
+    printed_name: printedName ?? undefined,
+    card_faces: undefined,
+    multiverse_ids: undefined,
+  };
 }
 
 /** English name from the slug of a Gatherer link, when Scryfall does not know the print ("fable-of-the" -> "Fable Of The"). */

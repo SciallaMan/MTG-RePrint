@@ -104,7 +104,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   cover the component**: after the change, a manual check in the browser (add a new card, add a card already in the
   list, add while a versions panel is open, add a line with no card). Risk: medium. Benefit: the trickiest method of
   the component becomes readable.
-- [ ] **E2. Split `Resolver.fromLink()`** — `server/src/resolver.ts`. Dense: Scryfall data, double-faced handling,
+- [x] **E2. Split `Resolver.fromLink()`** — `server/src/resolver.ts`. Dense: Scryfall data, double-faced handling,
   page image and the "card from the page alone" fallback in one method. Split into "data for the link" and "images
   for the link". Tests: `links.test.ts` (5 cases). Risk: medium. Benefit: readability; optional.
 
