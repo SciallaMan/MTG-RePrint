@@ -34,6 +34,8 @@ export interface AppDeps {
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_ENTRIES = 1000;
 const MAX_LIST_NAME = 100;
+/** Copies of one card in a list (the web app keeps the same limit). */
+const MAX_QTY = 99;
 const LANG = /^[a-z]{2,3}$/;
 const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
 /**
@@ -88,8 +90,8 @@ export function parseEntries(value: unknown): DeckEntry[] | string {
   for (const [i, item] of value.entries()) {
     const e = (typeof item === 'object' && item !== null ? item : {}) as Record<string, unknown>;
     const { qty, name, setCode, number, printId } = e;
-    if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 0 || qty > 99) {
-      return `entry ${i + 1}: "qty" must be a whole number from 0 to 99`;
+    if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 0 || qty > MAX_QTY) {
+      return `entry ${i + 1}: "qty" must be a whole number from 0 to ${MAX_QTY}`;
     }
     if (!isCardName(name)) return `entry ${i + 1}: "name" must be a card name`;
     if (setCode != null && (typeof setCode !== 'string' || !SET_CODE.test(setCode))) {

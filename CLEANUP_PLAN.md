@@ -74,7 +74,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 - [x] **C4. `pageLabel()` in `gatherer.ts`** — `${setCode}/${lang}/${num}` is built in `imageFromPage`,
   `readPage` and `imageFromLink` (and a variant in `findImages`). One function. Tests: `resolver.test.ts`,
   `fixes.test.ts`, `links.test.ts` match on these labels. Risk: low.
-- [ ] **C5. `MAX_QTY` constant** — the quantity limit 99 is a literal in `server/src/app.ts` (validation and its
+- [x] **C5. `MAX_QTY` constant** — the quantity limit 99 is a literal in `server/src/app.ts` (validation and its
   message), `web/src/app/app.ts` (`changeQty`) and `web/src/app/wishlist.ts` (`addEntries`). One constant per side
   (server: `app.ts`; web: `wishlist.ts`, imported by `app.ts`). Putting it in the shared `types.ts`/`api-types.ts`
   would be cleaner but that file is "API types only" — say if you prefer that. Risk: low.

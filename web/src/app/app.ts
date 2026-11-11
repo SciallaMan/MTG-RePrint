@@ -15,7 +15,7 @@ import type {
 import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
-import { addEntries, pinsOf, toDecklist } from './wishlist';
+import { MAX_QTY, addEntries, pinsOf, toDecklist } from './wishlist';
 
 interface Row {
   entry: DeckEntry;
@@ -583,7 +583,7 @@ export class App {
   protected changeQty(index: number, delta: number): void {
     this.rows.update((rows) =>
       rows.map((row, i) =>
-        i === index ? { ...row, entry: { ...row.entry, qty: Math.max(0, Math.min(99, row.entry.qty + delta)) } } : row,
+        i === index ? { ...row, entry: { ...row.entry, qty: Math.max(0, Math.min(MAX_QTY, row.entry.qty + delta)) } } : row,
       ),
     );
   }

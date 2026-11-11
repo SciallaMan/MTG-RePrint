@@ -1,6 +1,9 @@
 // Saved lists (wishlists) in the browser. Imports nothing from the app, so tests can run it under Node.
 import type { DeckEntry } from './api-types';
 
+/** Copies of one card in a list (the server refuses more). */
+export const MAX_QTY = 99;
+
 /** The page of a print given by its Gatherer link (id "gatherer:SET/lang/number/slug"), or null. */
 export function gathererLinkOf(printId: string | null | undefined): string | null {
   return printId?.startsWith('gatherer:') ? `https://gatherer.wizards.com/${printId.slice('gatherer:'.length)}` : null;
@@ -46,7 +49,7 @@ function sameCard(a: DeckEntry, b: DeckEntry): boolean {
 }
 
 /**
- * Cards added to a list: a card already there gets the added quantity (at most 99), the others go
+ * Cards added to a list: a card already there gets the added quantity (at most MAX_QTY), the others go
  * at the top, in their order. The list becomes `[...added, ...entries]`: `added` holds the new
  * entries, `entries` the old ones (same order, quantities updated). `target` tells, for each added
  * entry, the index of its new row, or -1 when it went into an existing one.
@@ -62,7 +65,7 @@ export function addEntries(
       const same = list.findIndex((e) => sameCard(e, entry));
       const existing = list[same];
       if (!existing) return false;
-      list[same] = { ...existing, qty: Math.min(99, existing.qty + entry.qty) };
+      list[same] = { ...existing, qty: Math.min(MAX_QTY, existing.qty + entry.qty) };
       return true;
     };
     if (bump(fresh) || bump(old)) return -1;
