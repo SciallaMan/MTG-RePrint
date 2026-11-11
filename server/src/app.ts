@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Cache } from './cache.ts';
 import { IMAGE_FILE } from './cache.ts';
 import { VERSION } from './config.ts';
-import { resolveDeck, toResolvedCard } from './deck.ts';
+import { chosenPrintCard, joinReasons, resolveDeck } from './deck.ts';
 import type { Resolver } from './resolver.ts';
 import type { StaticSource } from './static.ts';
 import { contentTypeFor } from './static.ts';
@@ -330,16 +330,10 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
     const { card, images, reasons } = await withPriority('high', () => deps.resolver.print(request.id));
     if (!card) return sendJson(res, 404, { error: 'This print does not exist on Scryfall' });
     if (!images) {
-      const why = reasons.length ? `: ${[...new Set(reasons)].join('; ')}` : '';
+      const why = reasons.length ? `: ${joinReasons(reasons)}` : '';
       return sendJson(res, 404, { error: `Gatherer has no image for this print${why}` });
     }
-    const resolved = toResolvedCard(card, images, {
-      requestedLang: request.lang,
-      requested: null,
-      requestedSetFound: true,
-      langNote: null,
-    });
-    sendJson(res, 200, { card: resolved });
+    sendJson(res, 200, { card: chosenPrintCard(card, images, request.lang) });
   }
 
   /** Answer with newline-delimited JSON events, one per card, as soon as each is resolved. */

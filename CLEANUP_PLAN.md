@@ -67,7 +67,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 - [x] **C2. One UUID pattern** — `server/src/lists.ts` (`LIST_ID`) and `server/src/app.ts` (`PRINT_ID`) both spell
   out the UUID regex. Keep one `UUID` source string (e.g. in `lists.ts`, already exported) and build `PRINT_ID` from
   it. Tests: `lists.test.ts`, `versions.test.ts`, `links.test.ts`. Risk: low.
-- [ ] **C3. `deck.ts` / `app.ts` duplicates** — the `toResolvedCard(card, images, { requestedLang, requested: null,
+- [x] **C3. `deck.ts` / `app.ts` duplicates** — the `toResolvedCard(card, images, { requestedLang, requested: null,
   requestedSetFound: true, langNote: null })` call for a print chosen by hand appears in `deck.ts` (pinned entry)
   and `app.ts` (`print` endpoint); `[...new Set(reasons)].join('; ')` appears in both too. One small helper for each
   in `deck.ts`. Tests: `lists.test.ts`, `versions.test.ts`, `links.test.ts`. Risk: low.

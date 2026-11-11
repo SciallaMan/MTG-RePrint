@@ -37,6 +37,16 @@ export function toResolvedCard(
   };
 }
 
+/** The card sent to the browser for a print chosen by hand: nothing was asked for, nothing to explain. */
+export function chosenPrintCard(card: ScryfallCard, images: FoundImages, requestedLang: string): ResolvedCard {
+  return toResolvedCard(card, images, { requestedLang, requested: null, requestedSetFound: true, langNote: null });
+}
+
+/** The reasons why a print could not be used, each once, as one sentence. */
+export function joinReasons(reasons: readonly string[]): string {
+  return [...new Set(reasons)].join('; ');
+}
+
 function linkUrl(id: string): string | null {
   const link = parseGathererLinkId(id);
   return link ? gathererLinkUrl(link) : null;
@@ -96,12 +106,7 @@ export async function resolveDeck(
         // a print chosen by hand (saved list): used as is, unless Gatherer no longer has it
         const pinned = await print(entry.printId);
         if (pinned.card && pinned.images) {
-          const card = toResolvedCard(pinned.card, pinned.images, {
-            requestedLang: request.lang,
-            requested: null,
-            requestedSetFound: true,
-            langNote: null,
-          });
+          const card = chosenPrintCard(pinned.card, pinned.images, request.lang);
           found++;
           emit({ type: 'card', index, status: 'ok', card });
           continue;
@@ -109,7 +114,7 @@ export async function resolveDeck(
         if (parseGathererLink(entry.name)) {
           // a Gatherer link that gives no card: there is no name to look for instead
           failed++;
-          const why = [...new Set(pinned.reasons)].join('; ') || 'no card on this Gatherer page';
+          const why = joinReasons(pinned.reasons) || 'no card on this Gatherer page';
           emit({ type: 'card', index, status: 'not_found', message: `Gatherer link: ${why}` });
           continue;
         }
