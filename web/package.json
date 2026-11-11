@@ -9,7 +9,8 @@
   "scripts": {
     "start": "ng serve",
     "build": "ng build",
-    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\""
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "@angular/common": "^22.0.0",

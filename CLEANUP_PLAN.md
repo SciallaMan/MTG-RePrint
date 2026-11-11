@@ -117,7 +117,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   DeckEntry[]` without checking the entries (the `parseEntries` validator exists in `app.ts`). Today a hand-edited or
   corrupt list file is accepted as it is; with validation it would be reported as unreadable (skipped in the list,
   404 when opened). That is a **behaviour change on bad data**, so it is listed, not planned. Say if you want it.
-- [ ] **F3. Type-check the web tests** — `web/test/*.ts` (and `wishlist.ts`/`pdf.ts` as the tests use them) are
+- [x] **F3. Type-check the web tests** — `web/test/*.ts` (and `wishlist.ts`/`pdf.ts` as the tests use them) are
   never type-checked: `tsconfig.app.json` includes only `src/`, and the tests run with type stripping. A
   `tsconfig.test.json` + a `typecheck` script in `web/package.json` (and in CI) would close the gap. Tooling change:
   only with your OK.

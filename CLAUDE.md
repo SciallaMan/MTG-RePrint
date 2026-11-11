@@ -10,7 +10,7 @@ Run from the repository root unless noted. Node >= 22.22.3 (CI uses 24).
 
 ```
 npm run install:all      # root + server + web (three separate package-lock.json)
-npm run typecheck        # server only (tsc --noEmit over src and test)
+npm run typecheck        # server (tsc over src and test) and the web tests (web/tsconfig.test.json)
 npm test                 # server tests, then web tests (node:test, network mocked)
 npm run build            # Angular production build -> web/dist/web/browser
 npm start                # server, serves the built web app, opens the browser
@@ -27,7 +27,7 @@ node --disable-warning=ExperimentalWarning --test test/resolver.test.ts
 node --disable-warning=ExperimentalWarning --test --test-name-pattern="double-faced" "test/*.test.ts"
 ```
 
-The web app is type-checked only by `npm run build` (Angular compiler, strict templates). CI runs typecheck, test and build.
+The web app itself is type-checked by `npm run build` (Angular compiler, strict templates); `npm run typecheck` covers the server and the web tests with what they import (`wishlist.ts`, `pdf.ts`). CI runs typecheck, test and build.
 
 ## Architecture
 
