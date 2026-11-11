@@ -43,6 +43,12 @@ const SET_CODE = /^[A-Za-z0-9]{2,6}$/;
 const PRINT_ID =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(:[a-z]{2,3})?|gatherer:[A-Z0-9]{1,8}\/[a-z]{2}-[a-z]{2}\/[\w-]{1,20}(\/[a-z0-9-]{1,150})?)$/;
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const MAX_NAME = 200;
+
+/** A card name as the API accepts it: a non-blank string of at most MAX_NAME characters. */
+function isCardName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '' && value.length <= MAX_NAME;
+}
 
 const NOT_BUILT_PAGE = `<!doctype html><meta charset="utf-8"><title>MTG RePrint</title>
 <body style="font-family:sans-serif;max-width:40rem;margin:3rem auto">
@@ -86,7 +92,7 @@ export function parseEntries(value: unknown): DeckEntry[] | string {
     if (typeof qty !== 'number' || !Number.isInteger(qty) || qty < 0 || qty > 99) {
       return `entry ${i + 1}: "qty" must be a whole number from 0 to 99`;
     }
-    if (typeof name !== 'string' || name.trim() === '' || name.length > 200) return `entry ${i + 1}: "name" must be a card name`;
+    if (!isCardName(name)) return `entry ${i + 1}: "name" must be a card name`;
     if (setCode != null && (typeof setCode !== 'string' || !SET_CODE.test(setCode))) {
       return `entry ${i + 1}: "setCode" must be a set code`;
     }
@@ -114,7 +120,7 @@ function parsePins(value: unknown): Record<string, string> | string {
   if (pairs.length > MAX_ENTRIES) return error;
   const pins: Record<string, string> = {};
   for (const [name, id] of pairs) {
-    if (name.trim() === '' || name.length > 200 || typeof id !== 'string' || !PRINT_ID.test(id)) return error;
+    if (!isCardName(name) || typeof id !== 'string' || !PRINT_ID.test(id)) return error;
     pins[name.trim().toLowerCase()] = id;
   }
   return pins;
@@ -181,7 +187,7 @@ export function parseListIdRequest(body: unknown): { id: string } | string {
 export function parsePrintsRequest(body: unknown): PrintsRequest | string {
   const b = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const name = b['name'];
-  if (typeof name !== 'string' || name.trim() === '' || name.length > 200) return '"name" must be a card name';
+  if (!isCardName(name)) return '"name" must be a card name';
   const lang = parseLang(b['lang']);
   if (!lang) return '"lang" must be a language code such as it or en';
   return { name: name.trim(), lang };

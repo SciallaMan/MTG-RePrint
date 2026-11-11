@@ -61,7 +61,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 ### C. Small helpers for repeated code (server, all covered by tests)
 
-- [ ] **C1. `isCardName(value)`** — `server/src/app.ts`: the check `typeof name !== 'string' || name.trim() === '' ||
+- [x] **C1. `isCardName(value)`** — `server/src/app.ts`: the check `typeof name !== 'string' || name.trim() === '' ||
   name.length > 200` is written 3 times (`parseEntries`, `parsePins`, `parsePrintsRequest`). Tests:
   `lists.test.ts`, `versions.test.ts`. Risk: low.
 - [ ] **C2. One UUID pattern** — `server/src/lists.ts` (`LIST_ID`) and `server/src/app.ts` (`PRINT_ID`) both spell
