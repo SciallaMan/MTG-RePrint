@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { parsePrintRequest, parseResolveRequest } from '../src/app.ts';
 import { resolveDeck } from '../src/deck.ts';
 import { parseDecklist } from '../src/decklist.ts';
-import { gathererLinkId, parseGathererLink, parseGathererLinkId } from '../src/gatherer.ts';
+import { gathererLinkId, parseGathererLink, parseGathererLinkId } from '../src/links.ts';
 import type { ResolveEvent } from '../src/types.ts';
 import { card, json, pageFor, png, rig } from './helpers.ts';
 

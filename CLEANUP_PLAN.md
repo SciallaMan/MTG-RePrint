@@ -89,7 +89,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 - [x] **D2. One atomic write** — `server/src/cache.ts` (`writeAtomic`) and `server/src/lists.ts` (`save`) both do
   "write `<file>.<pid>.<time>.tmp`, then `rename`". Export the function from `cache.ts` (or a tiny `fs.ts`) and use it
   in `lists.ts`. Tests: `cache.test.ts`, `lists.test.ts`. Risk: low–medium (file writing; same calls, just moved).
-- [ ] **D3. Move the Gatherer-link functions to their own module** — `parseGathererLink`, `gathererLinkId`,
+- [x] **D3. Move the Gatherer-link functions to their own module** — `parseGathererLink`, `gathererLinkId`,
   `parseGathererLinkId`, `gathererLinkUrl` and the `GathererLink` type live in `server/src/gatherer.ts`, so
   `decklist.ts` (a pure parser) now imports the whole Gatherer client module. A pure move to `server/src/links.ts`;
   `gatherer.ts`, `decklist.ts`, `deck.ts`, `resolver.ts` and `links.test.ts` import from there; `CLAUDE.md` updated

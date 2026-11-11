@@ -1,4 +1,4 @@
-import { gathererLinkId, gathererLinkUrl, parseGathererLink } from './gatherer.ts';
+import { gathererLinkId, gathererLinkUrl, parseGathererLink } from './links.ts';
 import type { DeckEntry } from './types.ts';
 
 const SECTION_NAMES = new Set([

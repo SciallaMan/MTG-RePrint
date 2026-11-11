@@ -5,8 +5,9 @@ import {
   MAX_PRINTS_TRIED,
   TWO_FACED_LAYOUTS,
 } from './config.ts';
-import type { FoundImages, Gatherer, GathererLink } from './gatherer.ts';
-import { parseGathererLinkId } from './gatherer.ts';
+import type { FoundImages, Gatherer } from './gatherer.ts';
+import { parseGathererLinkId } from './links.ts';
+import type { GathererLink } from './links.ts';
 import { isNamed } from './scryfall.ts';
 import type { Scryfall, ScryfallCard } from './scryfall.ts';
 import { scryfallSetCode } from './setcodes.ts';
