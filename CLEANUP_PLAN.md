@@ -49,7 +49,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 ### B. Small helpers for repeated code (web)
 
-- [ ] **B1. `errorMessage(error)` helper** — `web/src/app/app.ts`. `error instanceof Error ? error.message :
+- [x] **B1. `errorMessage(error)` helper** — `web/src/app/app.ts`. `error instanceof Error ? error.message :
   String(error)` appears 7 times, and the "Cannot reach the MTG RePrint server" variant (`TypeError` check) twice
   (`resolve` and `addCard`). One function each. Risk: low (pure functions; no component tests, so verified by the
   build and a quick run). Benefit: shorter, one place to change the wording.

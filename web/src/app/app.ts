@@ -96,6 +96,16 @@ function cardPatch(event: Extract<ResolveEvent, { type: 'card' }>): Partial<Row>
     : { state: event.status, message: event.message };
 }
 
+/** The text of an error thrown by the server or the browser. */
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Like `errorMessage`, but a failed fetch (a TypeError) means the server is not there. */
+function serverErrorMessage(error: unknown): string {
+  return error instanceof TypeError ? 'Cannot reach the MTG RePrint server. Is it still running?' : errorMessage(error);
+}
+
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -280,13 +290,7 @@ export class App {
       this.resolved.set(true);
     } catch (error) {
       if (controller.signal.aborted) return;
-      this.error.set(
-        error instanceof TypeError
-          ? 'Cannot reach the MTG RePrint server. Is it still running?'
-          : error instanceof Error
-            ? error.message
-            : String(error),
-      );
+      this.error.set(serverErrorMessage(error));
     } finally {
       if (this.abort === controller) {
         this.resolving.set(false);
@@ -373,13 +377,7 @@ export class App {
       );
     } catch (error) {
       if (!controller.signal.aborted) {
-        this.error.set(
-          error instanceof TypeError
-            ? 'Cannot reach the MTG RePrint server. Is it still running?'
-            : error instanceof Error
-              ? error.message
-              : String(error),
-        );
+        this.error.set(serverErrorMessage(error));
       }
     } finally {
       if (this.addAbort === controller) {
@@ -508,7 +506,7 @@ export class App {
     } catch (error) {
       this.patchRow(index, gen, {
         searching: false,
-        searchNote: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
+        searchNote: `Search failed: ${errorMessage(error)}`,
       });
     }
   }
@@ -542,7 +540,7 @@ export class App {
       this.patchRow(index, gen, (r) => ({
         switching: false,
         versions: mark(r, 'none'),
-        versionError: error instanceof Error ? error.message : String(error),
+        versionError: errorMessage(error),
       }));
     }
   }
@@ -610,7 +608,7 @@ export class App {
       this.setsText.set(list.sets.join(', '));
       await this.resolve();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : String(error));
+      this.error.set(errorMessage(error));
       void this.refreshLists(); // it may have been deleted outside the app
     }
   }
@@ -641,7 +639,7 @@ export class App {
       this.notice.set(`List "${list.name}" saved.`);
       await this.refreshLists();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : String(error));
+      this.error.set(errorMessage(error));
     } finally {
       this.listBusy.set(false);
     }
@@ -664,7 +662,7 @@ export class App {
       this.selectedListId.set('');
       this.notice.set(`List "${list.name}" deleted.`);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : String(error));
+      this.error.set(errorMessage(error));
     }
     await this.refreshLists();
   }
@@ -697,7 +695,7 @@ export class App {
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       this.notice.set('PDF created. Print it at 100% ("actual size"), not "fit to page".');
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : String(error));
+      this.error.set(errorMessage(error));
     } finally {
       this.pdfBusy.set(false);
       this.pdfProgress.set(null);
@@ -709,7 +707,7 @@ export class App {
       const { count } = await this.api.clearCache();
       this.notice.set(`Cache cleared (${count} files).`);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : String(error));
+      this.error.set(errorMessage(error));
     }
   }
 
