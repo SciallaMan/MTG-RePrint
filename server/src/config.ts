@@ -1,7 +1,6 @@
 import path from 'node:path';
 
 export const VERSION = '0.4.2';
-export const APP_NAME = 'mtg-reprint';
 export const DEFAULT_PORT = 3210;
 
 export const SCRYFALL_API = 'https://api.scryfall.com';
