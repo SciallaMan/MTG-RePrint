@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addEntries, pinsOf, toDecklist } from '../src/app/wishlist.ts';
+import { addEntries, pinsOf, removeLine, toDecklist } from '../src/app/wishlist.ts';
 
 const ID1 = '11111111-1111-1111-1111-111111111111';
 const ID2 = '22222222-2222-2222-2222-222222222222';
@@ -18,6 +18,16 @@ test('a saved list becomes decklist text; quantity 0 lines are left out', () => 
     '2 Fable of the Mirror-Breaker (NEO) 141\n1 Eluge, the Shoreless Sea #49\n1 Ponder (M12)\n4 Lightning Bolt\n' +
       '2 https://gatherer.wizards.com/M3C/it-it/6/cayth-famed-mechanist',
   );
+});
+
+test('removing a card drops the first line that names it, however the quantity was written', () => {
+  const text = '// burn\n4x lightning bolt\n2 Ponder (M12)\n1 Lightning Bolt\n';
+  const bolt = { qty: 2, name: 'Lightning Bolt', setCode: null, number: null };
+  assert.equal(removeLine(text, bolt), '// burn\n2 Ponder (M12)\n1 Lightning Bolt\n');
+  assert.equal(removeLine(text, { ...bolt, setCode: 'neo' }), text, 'another print: nothing removed');
+  assert.equal(removeLine(text, { qty: 1, name: 'Ponder', setCode: 'm12', number: null }), '// burn\n4x lightning bolt\n1 Lightning Bolt\n');
+  const link = { qty: 1, name: 'Cayth', setCode: 'm3c', number: '6', printId: 'gatherer:M3C/it-it/6/cayth' };
+  assert.equal(removeLine('1 https://gatherer.wizards.com/M3C/it-it/6/cayth\n1 Ponder', link), '1 Ponder');
 });
 
 test('pins are keyed by lower-case name; the first print of a name wins', () => {

@@ -78,6 +78,7 @@ button.link.retry { justify-self: start; padding: .1rem 0; font-size: .8rem; }
 .info-icon { width: 1.1em; height: 1.1em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .qty { display: flex; gap: .5rem; align-items: center; margin-top: .25rem; }
 .qty button { padding: .1rem .6rem; }
+.qty button.link.remove { margin-left: auto; padding: .1rem 0; font-size: .8rem; }
 dialog.zoom { padding: 0; border: 0; outline: none; background: transparent; max-width: none; max-height: none; overflow: visible; }
 dialog.zoom::backdrop { background: rgb(0 0 0 / .78); }
 .zoom-body { position: relative; display: grid; gap: .6rem; justify-items: center; padding: 1rem; }

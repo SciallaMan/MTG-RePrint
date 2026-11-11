@@ -285,6 +285,9 @@
                 <button type="button" aria-label="One less" (click)="changeQty(rowIndex, -1)">−</button>
                 <span>{{ row.entry.qty }}×</span>
                 <button type="button" aria-label="One more" (click)="changeQty(rowIndex, 1)">+</button>
+                <button type="button" class="link remove" title="Remove this card from the list" [disabled]="resolving()" (click)="removeRow(rowIndex)">
+                  Remove
+                </button>
               </span>
             </div>
           </li>

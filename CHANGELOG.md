@@ -7,6 +7,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 ### Added
 
 - **Try again** on a card that was not found (or **Retry the N not found** in the summary): only those cards are looked up again, in place, without searching the whole list. Useful after Gatherer refused the pages for a while, or after adding the print by hand.
+- **Remove** on a card takes it out of the list (and its line out of the decklist text), instead of leaving it at quantity 0.
 
 ## [0.5.0]
 

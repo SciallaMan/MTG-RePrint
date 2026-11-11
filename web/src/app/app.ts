@@ -15,7 +15,7 @@ import type {
 import { PER_PAGE, buildPdf, pdfFileName } from './pdf/pdf';
 import type { PageFormat, Slot } from './pdf/pdf';
 import { webpToPng } from './webp';
-import { MAX_QTY, addEntries, pinsOf, toDecklist } from './wishlist';
+import { MAX_QTY, addEntries, pinsOf, removeLine, toDecklist } from './wishlist';
 
 interface Row {
   entry: DeckEntry;
@@ -436,6 +436,30 @@ export class App {
     for (const controller of this.sideRequests) controller.abort();
     this.sideRequests.clear();
     this.adding.set(false);
+  }
+
+  /**
+   * Remove a row, and its line from the decklist text when it is there. The rows below move up,
+   * so a look-up still running on single rows is stopped (its rows would be patched at the wrong
+   * place) and what it had not answered yet is marked.
+   */
+  protected removeRow(index: number): void {
+    const row = this.rows()[index];
+    if (!row || this.resolving()) return;
+    const interrupted = this.sideRequests.size > 0;
+    this.stopSideRequests();
+    this.generation++;
+    this.closeVersions();
+    this.rows.update((rows) =>
+      rows
+        .filter((_, i) => i !== index)
+        .map((r): Row => (interrupted && r.state === 'pending' ? { ...r, state: 'error', message: 'Look-up interrupted: try again.' } : r)),
+    );
+    const before = this.decklist();
+    const text = removeLine(before, row.entry);
+    if (text === before) return;
+    this.decklist.set(text);
+    if (this.listSource && this.listSource.text === before) this.listSource = { ...this.listSource, text };
   }
 
   /** Lines added to the list also go at the top of its text; an open list whose text was unchanged stays in step. */

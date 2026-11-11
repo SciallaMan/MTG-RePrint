@@ -10,23 +10,47 @@ export function gathererLinkOf(printId: string | null | undefined): string | nul
 }
 
 /**
- * The cards of a list as decklist text, one line per card ("2 Fable of the Mirror-Breaker (NEO) 141");
- * a card given by its Gatherer link is written as that link, so it is found the same way again.
+ * The decklist line of a card ("2 Fable of the Mirror-Breaker (NEO) 141"); a card given by its
+ * Gatherer link is written as that link, so it is found the same way again.
  */
+export function lineOf(e: DeckEntry): string {
+  const link = gathererLinkOf(e.printId);
+  if (link) return `${e.qty} ${link}`;
+  const where = e.setCode
+    ? ` (${e.setCode.toUpperCase()})${e.number ? ` ${e.number}` : ''}`
+    : e.number
+      ? ` #${e.number}`
+      : '';
+  return `${e.qty} ${e.name}${where}`;
+}
+
+/** The cards of a list as decklist text, one line per card. */
 export function toDecklist(entries: readonly DeckEntry[]): string {
   return entries
     .filter((e) => e.qty > 0)
-    .map((e) => {
-      const link = gathererLinkOf(e.printId);
-      if (link) return `${e.qty} ${link}`;
-      const where = e.setCode
-        ? ` (${e.setCode.toUpperCase()})${e.number ? ` ${e.number}` : ''}`
-        : e.number
-          ? ` #${e.number}`
-          : '';
-      return `${e.qty} ${e.name}${where}`;
-    })
+    .map(lineOf)
     .join('\n');
+}
+
+/** A line without its quantity ("4x Lightning Bolt" and "1 lightning bolt" are the same card). */
+const cardOfLine = (line: string): string =>
+  line
+    .trim()
+    .toLowerCase()
+    .replace(/^\d+\s*x?\s+/, '')
+    .replace(/\s+/g, ' ');
+
+/**
+ * The text without the first line that names this card (as the app writes it, or with another
+ * quantity or an "x" after it); the text as it is when there is no such line.
+ */
+export function removeLine(text: string, entry: DeckEntry): string {
+  const wanted = cardOfLine(lineOf(entry));
+  const lines = text.split('\n');
+  const index = lines.findIndex((line) => cardOfLine(line) === wanted);
+  if (index < 0) return text;
+  lines.splice(index, 1);
+  return lines.join('\n');
 }
 
 /** Prints chosen by hand, by lower-case card name (the first one wins when a card appears twice). */
