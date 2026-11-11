@@ -43,7 +43,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   again, and consistent with the Angular style used before. Note: to avoid it happening again, the VS Code HTML
   formatter should be off for this file or replaced by the Angular one — that is an editor setting, not a repo change,
   so it is just a suggestion.
-- [ ] **A5. Drop `class="secondary"`** — `web/src/app/app.html` (Cancel button). No CSS rule defines `.secondary`
+- [x] **A5. Drop `class="secondary"`** — `web/src/app/app.html` (Cancel button). No CSS rule defines `.secondary`
   anywhere, so the class does nothing. Removing it changes nothing on screen. Risk: low. (The alternative — giving
   it a style — would change the UI, so it is not proposed.)
 

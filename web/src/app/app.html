@@ -66,7 +66,7 @@
 
     <div class="actions">
       @if (resolving()) {
-        <button type="button" class="secondary" (click)="cancel()">Cancel</button>
+        <button type="button" (click)="cancel()">Cancel</button>
       } @else {
         <button type="button" class="primary" [disabled]="decklist().trim() === ''" (click)="resolve()">Find cards</button>
       }
