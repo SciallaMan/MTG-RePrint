@@ -110,7 +110,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 ### F. Needs your OK (configuration, or a behaviour change on bad data)
 
-- [ ] **F1. `"type": "module"` in `web/package.json`** — removes the three `MODULE_TYPELESS_PACKAGE_JSON` warnings
+- [x] **F1. `"type": "module"` in `web/package.json`** — removes the three `MODULE_TYPELESS_PACKAGE_JSON` warnings
   printed by every `npm test`. The Angular CLI does not read this field (it uses `angular.json`/`tsconfig`), but it
   is a configuration change, so: **only with your OK**; the build is re-run to confirm. Risk: low–medium.
 - [ ] **F2. Validate saved lists when reading them** — `server/src/lists.ts` `get()` returns `raw.entries as
