@@ -53,7 +53,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
   String(error)` appears 7 times, and the "Cannot reach the MTG RePrint server" variant (`TypeError` check) twice
   (`resolve` and `addCard`). One function each. Risk: low (pure functions; no component tests, so verified by the
   build and a quick run). Benefit: shorter, one place to change the wording.
-- [ ] **B2. `languageOf(code)` helper** — `web/src/app/app.ts`: `LANGUAGES.find((l) => l.code === …)` is written
+- [x] **B2. `languageOf(code)` helper** — `web/src/app/app.ts`: `LANGUAGES.find((l) => l.code === …)` is written
   twice (`resolvedLangName`, `versionGroups`). Risk: low.
 - [ ] **B3. One place for the image URL** — `web/src/app/api.ts` (`imageBytes`) and `app.ts` (`imageUrl`) both
   build `/api/images/${encodeURIComponent(file)}`. Move the URL into `Api.imageUrl(file)` and use it from both.

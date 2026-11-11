@@ -96,6 +96,11 @@ function cardPatch(event: Extract<ResolveEvent, { type: 'card' }>): Partial<Row>
     : { state: event.status, message: event.message };
 }
 
+/** The language with this code, or undefined for one the app does not know. */
+function languageOf(code: string): (typeof LANGUAGES)[number] | undefined {
+  return LANGUAGES.find((l) => l.code === code);
+}
+
 /** The text of an error thrown by the server or the browser. */
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -513,7 +518,7 @@ export class App {
 
   /** English name of the language the list was resolved in, for the English sentences of the UI. */
   protected resolvedLangName(): string {
-    return LANGUAGES.find((l) => l.code === this.resolvedLang)?.english ?? this.resolvedLang.toUpperCase();
+    return languageOf(this.resolvedLang)?.english ?? this.resolvedLang.toUpperCase();
   }
 
   /** The user picked another version in the panel. */
@@ -560,7 +565,7 @@ export class App {
     }
     for (const lang of [...new Set(versions.map((v) => v.lang))]) {
       groups.push({
-        label: LANGUAGES.find((l) => l.code === lang)?.name ?? lang.toUpperCase(),
+        label: languageOf(lang)?.name ?? lang.toUpperCase(),
         options: versions
           .filter((v) => v.lang === lang)
           .map((v) => ({
