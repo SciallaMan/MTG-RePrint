@@ -70,6 +70,8 @@ Each card has a versions panel (**Other versions**) to pick another print. Gathe
 
 To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the top, and at the top of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
 
+A card that was not found has a **Try again** link, and the summary a **Retry the N not found** button: only those cards are looked up again, in their place. Handy when Gatherer was refusing pages for a few minutes.
+
 When the app does not find a card that you can see on Gatherer, paste the address of its Gatherer page instead, with a quantity before it if you like: `2 https://gatherer.wizards.com/M3C/it-it/6/cayth-famed-mechanist`. The image comes from that very page, the card data from Scryfall when it has that print. The card is marked "Version chosen by hand", is saved that way in a list, and stays a link in the decklist text. A link works in the decklist box too.
 
 ## Saved lists

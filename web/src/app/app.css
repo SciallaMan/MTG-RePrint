@@ -67,6 +67,8 @@ button.link.search-gatherer:hover:not(:disabled) { color: var(--text); }
 .versions-panel .status.bad { color: var(--error); }
 .versions-panel .hint { margin: .5rem; font-size: .85rem; color: var(--muted); }
 .sub { color: var(--muted); font-size: .85rem; }
+button.link.retry { justify-self: start; padding: .1rem 0; font-size: .8rem; }
+.summary button.link.retry { font-size: inherit; margin-left: .25rem; }
 .warn { color: var(--warn); font-size: .8rem; }
 .pinned { color: var(--accent); font-size: .8rem; }
 .only-gatherer {

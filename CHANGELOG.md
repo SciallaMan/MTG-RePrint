@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Try again** on a card that was not found (or **Retry the N not found** in the summary): only those cards are looked up again, in place, without searching the whole list. Useful after Gatherer refused the pages for a while, or after adding the print by hand.
+
 ## [0.5.0]
 
 ### Added

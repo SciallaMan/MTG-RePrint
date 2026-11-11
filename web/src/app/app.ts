@@ -133,8 +133,8 @@ function loadSettings(): Settings {
 export class App {
   private readonly api = inject(Api);
   private abort: AbortController | null = null;
-  /** The card being added with "Add card", while it is looked up. */
-  private addAbort: AbortController | null = null;
+  /** Look-ups of single rows ("Add a card", "Try again"): a new search stops them. */
+  private readonly sideRequests = new Set<AbortController>();
   /** Language the current list was resolved in (the select may have changed since). */
   private resolvedLang = 'en';
   /** Increases with every search: late answers for an older list are dropped. */
@@ -266,7 +266,7 @@ export class App {
 
   protected async resolve(): Promise<void> {
     this.abort?.abort();
-    this.stopAdding();
+    this.stopSideRequests();
     const controller = new AbortController();
     this.abort = controller;
     const request: ResolveRequest = {
@@ -327,9 +327,8 @@ export class App {
   protected async addCard(): Promise<void> {
     const line = this.addText().trim();
     if (!line || this.adding() || this.resolving()) return;
-    this.stopAdding();
     const controller = new AbortController();
-    this.addAbort = controller;
+    this.sideRequests.add(controller);
     let gen = this.generation;
     this.error.set(null);
     this.notice.set(null);
@@ -360,11 +359,43 @@ export class App {
         this.error.set(serverErrorMessage(error));
       }
     } finally {
-      if (this.addAbort === controller) {
-        this.adding.set(false);
-        this.addAbort = null;
-      }
+      if (this.sideRequests.delete(controller)) this.adding.set(false);
     }
+  }
+
+  /** Look up again the rows at these indexes (cards not found or in error), each in its place. */
+  protected async retryRows(indexes: number[]): Promise<void> {
+    const rows = this.rows();
+    const entries = indexes.map((i) => rows[i]?.entry).filter((e): e is DeckEntry => e !== undefined);
+    if (entries.length === 0 || this.resolving()) return;
+    const gen = this.generation;
+    const controller = new AbortController();
+    this.sideRequests.add(controller);
+    for (const i of indexes) this.patchRow(i, gen, { state: 'pending', message: undefined });
+    const request: ResolveRequest = { decklist: '', lang: this.resolvedLang, sets: this.sets(), skipBasicLands: false, entries };
+    try {
+      await this.api.resolve(
+        request,
+        (event) => {
+          if (gen !== this.generation) return controller.abort();
+          if (event.type !== 'card') return;
+          const index = indexes[event.index];
+          if (index !== undefined) this.patchRow(index, gen, cardPatch(event));
+        },
+        controller.signal,
+      );
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message = serverErrorMessage(error);
+      for (const i of indexes) this.patchRow(i, gen, (r) => (r.state === 'pending' ? { state: 'error', message } : {}));
+    } finally {
+      this.sideRequests.delete(controller);
+    }
+  }
+
+  /** "Retry the N not found": every row not found or in error, in one request. */
+  protected retryFailed(): void {
+    void this.retryRows(this.rows().flatMap((r, i) => (r.state === 'not_found' || r.state === 'error' ? [i] : [])));
   }
 
   /**
@@ -401,9 +432,9 @@ export class App {
     return added.target;
   }
 
-  private stopAdding(): void {
-    this.addAbort?.abort();
-    this.addAbort = null;
+  private stopSideRequests(): void {
+    for (const controller of this.sideRequests) controller.abort();
+    this.sideRequests.clear();
     this.adding.set(false);
   }
 

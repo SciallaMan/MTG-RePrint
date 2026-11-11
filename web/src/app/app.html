@@ -99,6 +99,11 @@
             Looking up cards… {{ doneCount() }} / {{ rows().length }}
           } @else {
             {{ foundCount() }} found, {{ failedRows().length }} not found.
+            @if (failedRows().length > 0) {
+              <button type="button" class="link retry" (click)="retryFailed()">
+                Retry the {{ failedRows().length }} not found
+              </button>
+            }
           }
           <strong>{{ slots().length }}</strong> card{{ slots().length === 1 ? '' : 's' }} to print on
           <strong>{{ pageCount() }}</strong> page{{ pageCount() === 1 ? '' : 's' }} ({{ perPage }} per page).
@@ -206,6 +211,7 @@
                 }
               } @else if (row.message) {
                 <span class="warn">{{ row.message }}</span>
+                <button type="button" class="link retry" title="Look this card up again" (click)="retryRows([rowIndex])">Try again</button>
               }
               @if (row.state !== 'pending') {
                 <div class="versions">
