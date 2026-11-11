@@ -30,6 +30,22 @@ export function contentTypeFor(file: string): string {
   return TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream';
 }
 
+/**
+ * The file a request asks for, relative to the web root ("/" is index.html), or null when the path
+ * cannot be decoded. `fallback` is index.html for a path without an extension: a route of the
+ * single-page app, served when there is no file of that name.
+ */
+function requestedFile(urlPath: string): { file: string; fallback: string | null } | null {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(urlPath);
+  } catch {
+    return null;
+  }
+  const file = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
+  return { file, fallback: path.extname(file) === '' ? 'index.html' : null };
+}
+
 /** Serves a folder. Unknown paths without an extension get index.html (single-page app). */
 export class FolderSource implements StaticSource {
   private readonly root: string;
@@ -39,16 +55,9 @@ export class FolderSource implements StaticSource {
   }
 
   async get(urlPath: string): Promise<StaticFile | null> {
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(urlPath);
-    } catch {
-      return null;
-    }
-    const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
-    const direct = await this.read(relative);
-    if (direct) return direct;
-    return path.extname(relative) === '' ? this.read('index.html') : null;
+    const wanted = requestedFile(urlPath);
+    if (!wanted) return null;
+    return (await this.read(wanted.file)) ?? (wanted.fallback ? this.read(wanted.fallback) : null);
   }
 
   private async read(relative: string): Promise<StaticFile | null> {
@@ -77,14 +86,9 @@ export class AssetSource implements StaticSource {
   }
 
   async get(urlPath: string): Promise<StaticFile | null> {
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(urlPath);
-    } catch {
-      return null;
-    }
-    const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
-    const name = this.names.has(relative) ? relative : path.extname(relative) === '' ? 'index.html' : null;
+    const wanted = requestedFile(urlPath);
+    if (!wanted) return null;
+    const name = this.names.has(wanted.file) ? wanted.file : wanted.fallback;
     if (name === null || !this.names.has(name)) return null;
     return { data: this.read(name), contentType: contentTypeFor(name) };
   }

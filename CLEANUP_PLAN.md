@@ -81,7 +81,7 @@ the three lockfiles. `npm outdated` was not run (it needs the network): say so i
 
 ### D. Duplicated logic (server, covered by tests)
 
-- [ ] **D1. `static.ts`: one `requestedFile(urlPath)`** — `FolderSource.get` and `AssetSource.get` repeat the same
+- [x] **D1. `static.ts`: one `requestedFile(urlPath)`** — `FolderSource.get` and `AssetSource.get` repeat the same
   lines: `decodeURIComponent` in a try/catch, `'/'` → `index.html`, strip leading slashes, single-page fallback when
   there is no extension. Extract a shared function; each class keeps only its own lookup. Tests: `static.test.ts`,
   `app.test.ts` (path traversal). Risk: low–medium (security-relevant code, but the traversal tests exist and the
