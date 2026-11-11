@@ -1,1 +1,7 @@
-1 update automatici in modo da non perdere la cartella /data ogni volta che si aggiorna
+1 aggiungere più filtri tipo:
+	- escludere un set o metterlo a bassa priorità rispetto ad altri
+	- un selettore di risoluzione minima per scartare alcune stampe e/o un flag per prendere la risoluzione più alta a parità di lingua
+	- //
+
+2 aggiungere una carta singola alla lista
+3 aggiungere un'immagine custom (da link se già online o upload)
