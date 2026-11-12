@@ -99,6 +99,16 @@ function cardPatch(event: Extract<ResolveEvent, { type: 'card' }>): Partial<Row>
     : { state: event.status, message: event.message };
 }
 
+/** The card name in a decklist line ("2 Counterspell (MH2) 267" -> "Counterspell"); empty for a link. */
+export function cardNameOf(line: string): string {
+  const text = line.trim();
+  if (/^(\d+x?\s+)?(https?:\/\/|gatherer\.wizards\.com)/i.test(text)) return '';
+  return text
+    .replace(/^\d+x?\s+/i, '')
+    .replace(/\s+(\(|\[|#).*$/, '')
+    .trim();
+}
+
 /** The language with this code, or undefined for one the app does not know. */
 function languageOf(code: string): (typeof LANGUAGES)[number] | undefined {
   return LANGUAGES.find((l) => l.code === code);
@@ -190,6 +200,11 @@ export class App {
   /** The "Add a card" line, and whether its card is being looked up. */
   protected readonly addText = signal('');
   protected readonly adding = signal(false);
+  /** "Search on Gatherer" next to "Add a card": a search for the card name typed there, else Gatherer itself. */
+  protected readonly gathererSearchUrl = computed(() => {
+    const name = cardNameOf(this.addText());
+    return name ? `https://gatherer.wizards.com/search?searchTerm=${encodeURIComponent(name)}` : 'https://gatherer.wizards.com/';
+  });
 
   protected readonly sets = computed(() =>
     this.setsText()

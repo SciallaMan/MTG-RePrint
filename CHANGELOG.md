@@ -2,6 +2,12 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Search on Gatherer** next to **Add a card** opens Gatherer's search for the card typed there (or Gatherer itself), to find the link to paste. Its ⓘ explains how: open the page of the exact print you want (edition and language), copy its address and paste it.
+
 ## [0.6.0]
 
 ### Added

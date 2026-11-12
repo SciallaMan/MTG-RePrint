@@ -129,6 +129,16 @@
             <!-- a card with a plus -->
             <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2" /><path d="M12 8.5v7M8.5 12h7" /></svg>
             <h2 id="add-card-title">Add a card</h2>
+            <span class="tool-help">
+              <a [href]="gathererSearchUrl()" target="_blank" rel="noopener noreferrer">Search on Gatherer ↗</a>
+              <span class="info" tabindex="0" aria-label="How to add a card from Gatherer" aria-describedby="gatherer-help">
+                <svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>
+                <span class="info-tip" role="tooltip" id="gatherer-help">
+                  Open the page of the exact print you want on Gatherer (the edition, and the language from the menu on
+                  the page), copy its address from the browser's address bar and paste it here. That very image is used.
+                </span>
+              </span>
+            </span>
           </div>
           <div class="tool-row">
             <input

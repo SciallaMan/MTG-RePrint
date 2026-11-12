@@ -32,6 +32,17 @@ textarea { font-family: ui-monospace, monospace; resize: vertical; }
   color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent);
   fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round;
 }
+.tool-help { margin-left: auto; display: flex; gap: .35rem; align-items: center; font-size: .85rem; white-space: nowrap; }
+.tool-help a { color: var(--tone); }
+.info { position: relative; display: inline-flex; color: var(--muted); cursor: help; border-radius: 50%; }
+.info:focus-visible { outline: 2px solid var(--tone); outline-offset: 2px; }
+.info-tip {
+  position: absolute; right: -.5rem; bottom: calc(100% + .5rem); z-index: 20; width: min(18rem, calc(100vw - 3rem));
+  padding: .6rem .75rem; white-space: normal; font-size: .82rem; line-height: 1.4; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: .5rem; box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / .25);
+  visibility: hidden; opacity: 0; transition: opacity .12s;
+}
+.info:hover .info-tip, .info:focus .info-tip { visibility: visible; opacity: 1; }
 .tool-row { display: flex; gap: .5rem; flex-wrap: wrap; }
 .tool-row input[type='text'] { flex: 1 1 12rem; width: auto; min-width: 0; background: var(--surface); }
 .tool-row input[type='text']:focus-visible { outline: 2px solid var(--tone); outline-offset: -1px; border-color: transparent; }
