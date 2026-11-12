@@ -1,6 +1,6 @@
 {
   "name": "@mtg-reprint/server",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Local server of MTG RePrint: resolves cards (Scryfall + Gatherer) and serves the web app",
