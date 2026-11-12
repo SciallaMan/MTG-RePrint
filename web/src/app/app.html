@@ -123,48 +123,65 @@
         </button>
       </div>
 
-      <div class="save-list">
-        @if (currentList(); as list) {
-          <span class="sub">Open list: <strong>{{ list.name }}</strong></span>
-        }
-        <input
-          type="text"
-          maxlength="100"
-          placeholder="List name"
-          aria-label="List name"
-          [value]="listName()"
-          (input)="listName.set(value($event))"
-          (keydown.enter)="saveList(false)"
-        >
-        @if (currentList()) {
-          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
-            Save
-          </button>
-          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(true)">
-            Save as new
-          </button>
-          <button type="button" class="link" (click)="closeList()">Close list</button>
-        } @else {
-          <button type="button" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
-            Save as list
-          </button>
-        }
-      </div>
+      <div class="tools">
+        <section class="tool add-card" aria-labelledby="add-card-title">
+          <div class="tool-head">
+            <!-- a card with a plus -->
+            <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2" /><path d="M12 8.5v7M8.5 12h7" /></svg>
+            <h2 id="add-card-title">Add a card</h2>
+          </div>
+          <div class="tool-row">
+            <input
+              type="text"
+              spellcheck="false"
+              placeholder="2 Counterspell (MH2) 267, or a Gatherer link"
+              title="A decklist line, or the address of the card's page on Gatherer (gatherer.wizards.com/SET/language/number/name), with a quantity before it if you like"
+              aria-label="Card or Gatherer link to add"
+              [value]="addText()"
+              (input)="addText.set(value($event))"
+              (keydown.enter)="addCard()"
+            >
+            <button type="button" class="tone" [disabled]="adding() || resolving() || addText().trim() === ''" (click)="addCard()">
+              {{ adding() ? 'Adding…' : 'Add' }}
+            </button>
+          </div>
+        </section>
 
-      <div class="add-card">
-        <input
-          type="text"
-          spellcheck="false"
-          placeholder="Add a card (2 Counterspell (MH2) 267) or paste link..."
-          title="A decklist line, or the address of the card's page on Gatherer (gatherer.wizards.com/SET/language/number/name), with a quantity before it if you like"
-          aria-label="Card or Gatherer link to add"
-          [value]="addText()"
-          (input)="addText.set(value($event))"
-          (keydown.enter)="addCard()"
-        >
-        <button type="button" [disabled]="adding() || resolving() || addText().trim() === ''" (click)="addCard()">
-          {{ adding() ? 'Adding…' : 'Add card' }}
-        </button>
+        <section class="tool save-list" aria-labelledby="save-list-title">
+          <div class="tool-head">
+            <!-- a bookmark -->
+            <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z" /></svg>
+            <h2 id="save-list-title">
+              @if (currentList(); as list) {
+                List: <span class="list-name">{{ list.name }}</span>
+              } @else {
+                Save as a list
+              }
+            </h2>
+            @if (currentList()) {
+              <button type="button" class="link" (click)="closeList()">Close list</button>
+            }
+          </div>
+          <div class="tool-row">
+            <input
+              type="text"
+              maxlength="100"
+              placeholder="List name"
+              aria-label="List name"
+              [value]="listName()"
+              (input)="listName.set(value($event))"
+              (keydown.enter)="saveList(false)"
+            >
+            <button type="button" class="tone" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(false)">
+              Save
+            </button>
+            @if (currentList()) {
+              <button type="button" class="tone" [disabled]="listBusy() || resolving() || listName().trim() === ''" (click)="saveList(true)">
+                Save as new
+              </button>
+            }
+          </div>
+        </section>
       </div>
 
       <ul class="grid">

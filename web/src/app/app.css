@@ -14,10 +14,29 @@ textarea { font-family: ui-monospace, monospace; resize: vertical; }
 .actions { display: flex; gap: 1rem; align-items: center; }
 .lists { display: flex; gap: .75rem 1rem; align-items: end; flex-wrap: wrap; }
 .lists .field { flex: 1 1 16rem; }
-.save-list { display: flex; gap: .5rem 1rem; align-items: center; flex-wrap: wrap; margin-top: .75rem; }
-.save-list input[type='text'] { width: auto; flex: 0 1 18rem; min-width: 10rem; }
-.add-card { display: flex; gap: .5rem; align-items: center; margin-top: .75rem; }
-.add-card input[type='text'] { width: auto; flex: 0 1 28rem; min-width: 10rem; }
+/* "Add a card" and the saved list, side by side above the cards: each with its own colour and icon */
+.tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: 1rem; margin-top: 1rem; }
+.tool {
+  --tone: var(--add);
+  display: grid; gap: .6rem; align-content: start; padding: .75rem .9rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--border)); border-radius: .75rem;
+  background: color-mix(in srgb, var(--tone) 7%, var(--surface));
+}
+.tool.save-list { --tone: var(--list); }
+.tool-head { display: flex; gap: .6rem; align-items: center; min-height: 2rem; }
+.tool-head h2 { margin: 0; font-size: .95rem; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.tool-head .list-name { color: var(--tone); }
+.tool-head button.link { margin-left: auto; padding: 0; font-size: .85rem; white-space: nowrap; }
+.tool-icon {
+  flex: none; width: 2rem; height: 2rem; padding: .35rem; box-sizing: border-box; border-radius: .5rem;
+  color: var(--tone); background: color-mix(in srgb, var(--tone) 16%, transparent);
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round;
+}
+.tool-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.tool-row input[type='text'] { flex: 1 1 12rem; width: auto; min-width: 0; background: var(--surface); }
+.tool-row input[type='text']:focus-visible { outline: 2px solid var(--tone); outline-offset: -1px; border-color: transparent; }
+button.tone { color: var(--tone); border-color: color-mix(in srgb, var(--tone) 55%, var(--border)); font-weight: 600; }
+button.tone:hover:not(:disabled) { background: color-mix(in srgb, var(--tone) 12%, var(--surface)); }
 button { font: inherit; cursor: pointer; border-radius: .5rem; border: 1px solid var(--border); padding: .5rem 1rem; color: inherit; background: var(--surface); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }

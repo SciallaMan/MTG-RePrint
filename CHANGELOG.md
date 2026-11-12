@@ -10,6 +10,7 @@ All notable changes to this project are listed here. The format follows [Keep a 
 
 ### Changed
 
+- **Add a card** and the saved list are now two boxes side by side above the cards (one above the other on a narrow window), each with its own colour and icon, so they are not mistaken for each other.
 - The enlarged card and the versions panel are now one window: click a card (or **Versions**) to see it large in the middle with its versions beside it, and **Find more … versions on Gatherer** under them. Choosing a version keeps the window open, to see the result. The cards in the list are lighter: no dropdown under each one any more.
 - A list whose cards were already found is much faster the second time: a print whose images are in the cache is used again without reading its Gatherer page.
 
