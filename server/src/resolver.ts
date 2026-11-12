@@ -169,7 +169,7 @@ export class Resolver {
   private async translation(card: ScryfallCard, lang: string): Promise<{ card: ScryfallCard; images: FoundImages } | null> {
     const id = translationId(card.id, lang);
     const found = await this.gatherer.imageInLanguage(card, lang);
-    this.gatherer.setAvailability(id, found ? 'full' : 'none');
+    await this.gatherer.record(id, found);
     if (!found) return null;
     const { printedName, ...images } = found;
     return { card: { ...card, id, lang, printed_name: printedName ?? card.name }, images };
@@ -181,16 +181,17 @@ export class Resolver {
    * (the same English prints that `findCard` tries, so normally no new request is needed).
    */
   async versions(name: string, lang: string): Promise<PrintOption[]> {
-    const options: PrintOption[] = [];
+    const cards: ScryfallCard[] = [];
     const seen = new Set<string>();
     for (const lg of lang === 'en' ? ['en'] : [lang, 'en']) {
       const searched = lg === lang ? name : await this.englishName(name, lang);
       for (const card of await this.scryfall.searchPrints(searched, lg)) {
         if (seen.has(card.id)) continue;
         seen.add(card.id);
-        options.push(this.option(card));
+        cards.push(card);
       }
     }
+    const options = await Promise.all(cards.map((card) => this.option(card)));
     if (lang !== 'en' && options.length > 0 && !options.some((o) => o.lang === lang)) {
       const { prints } = await this.searchGatherer(name, lang, 0, MAX_GATHERER_ONLY_TRIED);
       options.unshift(...prints);
@@ -219,7 +220,7 @@ export class Resolver {
     const prints: PrintOption[] = [];
     for (const card of batch) {
       const translated = await this.translation(card, lang);
-      if (translated) prints.push({ ...this.option(translated.card), gathererOnly: true });
+      if (translated) prints.push({ ...(await this.option(translated.card)), gathererOnly: true });
     }
     return { prints, tried: batch.length, gathererSearch: searchState(candidates.length, from + batch.length) };
   }
@@ -239,7 +240,9 @@ export class Resolver {
     );
   }
 
-  private option(card: ScryfallCard): PrintOption {
+  /** A print for the versions panel, with what is already known of its image (no request). */
+  private async option(card: ScryfallCard): Promise<PrintOption> {
+    const { available, thumbnail } = await this.gatherer.known(card.id);
     return {
       id: card.id,
       setCode: card.set,
@@ -247,7 +250,8 @@ export class Resolver {
       collectorNumber: card.collector_number,
       lang: card.lang,
       releasedAt: card.released_at ?? '',
-      available: this.gatherer.availability(card.id),
+      available,
+      thumbnail,
     };
   }
 

@@ -85,6 +85,8 @@ export interface PrintOption {
   releasedAt: string;
   /** What Gatherer has for this print, once it has been asked (null before). */
   available: Availability | null;
+  /** Front image of the print when it is already in the cache (GET /api/images/<file>): its thumbnail. */
+  thumbnail: string | null;
   /** A translation that Gatherer has and Scryfall does not list. */
   gathererOnly?: boolean;
 }

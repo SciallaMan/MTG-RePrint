@@ -7,7 +7,7 @@ A small web app that turns a Magic: The Gathering decklist into a print-ready PD
 - **Language first**: your preferred language (default Italian) is tried before anything else, with your preferred set first and the most recent print after that. English is used only when there is no image in your language, and the card tells you why.
 - **Output**: PDF in A4 or US Letter (3×3 cards per page), A3 (4×4) or US Legal (3×4), at the real size of 63 × 88 mm, with optional cut marks. Print it at 100% ("actual size").
 - Double-faced cards use two slots (front and back). Quantities can be changed in the preview.
-- In the preview each card name links to its Gatherer page, and a dropdown under the card lists its other versions, in your language and in English (loaded only when you point at it). Pick one to use it instead: the app checks Gatherer at that moment, and marks versions it has already checked (✓, "front only", "no image").
+- In the preview each card name links to its Gatherer page. Click a card (or **Versions**) to see it enlarged with its other versions beside it, in your language and in English: point at a version already downloaded to see its image in place of the card's, click a version to use it. The app checks Gatherer at that moment, and marks versions it has already checked (✓, "front only", "no image").
 
 > This is an unofficial fan tool. Please read the [legal notice](#legal-notice) before using it.
 
@@ -66,7 +66,7 @@ One card per line. Exports from Moxfield and Archidekt work as they are.
 
 Card names are English (the Scryfall name), whatever language you want the printed card to be in.
 
-Each card has a versions panel (**Other versions**) to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under **Other versions** on each card, looks for them three prints at a time and adds what it finds to the panel.
+Clicking a card opens it enlarged with its versions beside it, to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under the versions, looks for them three prints at a time and adds what it finds to the list.
 
 To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the top, and at the top of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
 

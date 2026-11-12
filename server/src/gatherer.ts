@@ -36,6 +36,40 @@ interface PageMemo {
   printedName: string | null;
 }
 
+/**
+ * What is remembered on disk about a print whose image was found: its image files (one per face)
+ * and where they came from. A print whose files are all still in the cache is used again with no
+ * request (Gatherer image names are tied to their content); its front is the thumbnail of the
+ * versions panel. Misses are not kept (Gatherer may add the image later, and the panel would
+ * disable that print for good).
+ */
+interface PrintMemo {
+  available: 'full' | 'front';
+  files: string[];
+  source: string;
+}
+
+type KnownEntry = PrintMemo | { available: 'none'; files: []; source: '' };
+
+const printKey = (cache: Cache, id: string): string => cache.jsonKey('print-images', { id });
+
+function isPrintMemo(value: unknown): value is PrintMemo {
+  const memo = value as Partial<PrintMemo> | null;
+  return (
+    (memo?.available === 'full' || memo?.available === 'front') &&
+    Array.isArray(memo.files) &&
+    memo.files.length > 0 &&
+    memo.files.every((f) => typeof f === 'string') &&
+    typeof memo.source === 'string'
+  );
+}
+
+/** What is known about a print without asking anything: what Gatherer has and its front image in the cache. */
+export interface KnownPrint {
+  available: Availability | null;
+  thumbnail: string | null;
+}
+
 function decodeEntities(text: string): string {
   return text
     .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
@@ -121,8 +155,8 @@ export class Gatherer {
   /** URL -> time before which it is not tried again. */
   private readonly failedUntil = new Map<string, number>();
   private pagesBlockedUntil = 0;
-  /** Scryfall id -> what was found for that print, in this session. */
-  private readonly known = new Map<string, Availability>();
+  /** Scryfall id -> what was found for that print, in this session (`file`: its front image). */
+  private readonly knownPrints = new Map<string, KnownEntry>();
 
   constructor(http: Http, cache: Cache, now: () => number = Date.now) {
     this.http = http;
@@ -264,20 +298,67 @@ export class Gatherer {
     return { files: [page.file], source: `Gatherer page ${page.label} (not on Scryfall)`, incomplete: false, printedName: page.printedName };
   }
 
-  /** What Gatherer has for this print, or null if it has not been looked up yet. */
-  availability(id: string): Availability | null {
-    return this.known.get(id) ?? null;
+  /**
+   * What Gatherer has for this print (null if it has not been looked up yet) and its front image,
+   * if that is in the cache. Only memory and disk: no request.
+   */
+  async known(id: string): Promise<KnownPrint> {
+    const found = await this.remembered(id);
+    if (!found) return { available: null, thumbnail: null };
+    const front = found.entry.files[0];
+    const thumbnail = front !== undefined && (await this.cache.hasImage(front)) ? front : null;
+    // a memo on disk whose image is gone says nothing any more
+    if (thumbnail === null && found.fromDisk) return { available: null, thumbnail: null };
+    return { available: found.entry.available, thumbnail };
   }
 
-  /** Record what was found for a print looked up another way (a translation only Gatherer has). */
-  setAvailability(id: string, availability: Availability): void {
-    this.known.set(id, availability);
+  /** What was found for a print: in this session, else on disk (only prints that had an image). */
+  private async remembered(id: string): Promise<{ entry: KnownEntry; fromDisk: boolean } | null> {
+    const inSession = this.knownPrints.get(id);
+    if (inSession) return { entry: inSession, fromDisk: false };
+    const value = (await this.cache.readJson(printKey(this.cache, id)))?.value;
+    return isPrintMemo(value) ? { entry: value, fromDisk: true } : null;
   }
 
-  /** Images of a print: the new page first, then the multiverseid. `reasons` collects why a method failed. */
+  /** Record what was found for a print (also for one looked up another way: a translation only Gatherer has). */
+  async record(id: string, images: FoundImages | null): Promise<void> {
+    if (!images || images.files.length === 0) {
+      this.knownPrints.set(id, { available: 'none', files: [], source: '' });
+      return;
+    }
+    const memo: PrintMemo = { available: images.incomplete ? 'front' : 'full', files: images.files, source: images.source };
+    const before = this.knownPrints.get(id);
+    this.knownPrints.set(id, memo);
+    if (before?.available === memo.available && before.files.join('|') === memo.files.join('|')) return;
+    try {
+      await this.cache.writeJson(printKey(this.cache, id), memo);
+    } catch {
+      // the print is only looked up again on Gatherer next time
+    }
+  }
+
+  /**
+   * The images of a print found before, when they are all still in the cache: no request at all.
+   * Only complete prints: for a double-faced card without its back, the back is looked for again.
+   */
+  private async reusable(id: string): Promise<FoundImages | null> {
+    const found = await this.remembered(id);
+    if (found?.entry.available !== 'full') return null;
+    for (const file of found.entry.files) {
+      if (!(await this.cache.hasImage(file))) return null;
+    }
+    return { files: found.entry.files, source: found.entry.source, incomplete: false };
+  }
+
+  /**
+   * Images of a print: those found before if still in the cache, else the new page first, then
+   * the multiverseid. `reasons` collects why a method failed.
+   */
   async imagesFor(card: ScryfallCard, reasons: string[]): Promise<FoundImages | null> {
+    const reused = await this.reusable(card.id);
+    if (reused) return reused;
     const images = await this.findImages(card, reasons);
-    this.known.set(card.id, images === null ? 'none' : images.incomplete ? 'front' : 'full');
+    await this.record(card.id, images);
     return images;
   }
 

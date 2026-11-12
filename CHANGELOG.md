@@ -2,6 +2,17 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Preview of the versions: with the pointer (or the keyboard focus) on a version whose image was already downloaded, the enlarged card shows that version, to see the art before choosing. Nothing is fetched for a preview: the other versions are checked on Gatherer when clicked, as before.
+
+### Changed
+
+- The enlarged card and the versions panel are now one window: click a card (or **Versions**) to see it large in the middle with its versions beside it, and **Find more … versions on Gatherer** under them. Choosing a version keeps the window open, to see the result. The cards in the list are lighter: no dropdown under each one any more.
+- A list whose cards were already found is much faster the second time: a print whose images are in the cache is used again without reading its Gatherer page.
+
 ## [0.5.1]
 
 ### Added

@@ -108,7 +108,7 @@ endpoint nuovo mantiene il controllo su `Host` e il `Content-Type: application/j
 - [ ] **D3. "Find more … versions on Gatherer" anche dalla ricerca**: quando la lingua non è l'inglese e la
   carta è finita in inglese, un'opzione "cerca a fondo" prova subito i candidati Gatherer (oggi si fa a
   mano, tre alla volta). Costa richieste: spenta di default. Sforzo S/M.
-- [ ] **D4. Miniature nel pannello versioni**, solo per le stampe già in cache (nessuna richiesta in più):
+- [x] **D4. Miniature nel pannello versioni**, solo per le stampe già in cache (nessuna richiesta in più):
   si vede l'arte prima di scegliere. Sforzo S.
 
 ## Ordine proposto

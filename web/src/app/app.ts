@@ -53,10 +53,13 @@ interface VersionChoice {
   disabled: boolean;
 }
 
-/** Width of the versions panel in px (22rem): it is wider than a card. */
-const PANEL_WIDTH_PX = 352;
-/** Maximum height of the versions panel in px: min(26rem, 60vh), as in app.css. */
-const panelMaxHeightPx = (): number => Math.min(416, window.innerHeight * 0.6);
+/** A version shown in the card dialog in place of the card, while the pointer is on it (only when its image is in the cache). */
+interface Preview {
+  index: number;
+  id: string;
+  /** Its images, one per face. */
+  files: string[];
+}
 
 interface Settings {
   lang: string;
@@ -127,10 +130,6 @@ function loadSettings(): Settings {
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '(document:click)': 'onDocumentClick($event)',
-    '(document:keydown.escape)': 'closeVersions()',
-  },
 })
 export class App {
   private readonly api = inject(Api);
@@ -158,17 +157,19 @@ export class App {
   protected readonly cutMarks = signal(this.saved.cutMarks);
 
   protected readonly rows = signal<Row[]>([]);
-  /** Row whose versions panel is open. */
-  protected readonly openVersions = signal<number | null>(null);
-  /** The panel opens towards the left when there is no room on the right. */
-  protected readonly panelOnLeft = signal(false);
-  /** The panel opens upwards when there is no room below (and more room above). */
-  protected readonly panelUp = signal(false);
-  /** Height limit of a panel that opens upwards (the room above its buttons), in px. */
-  protected readonly panelUpMaxHeight = signal<number | null>(null);
-  /** Card shown enlarged in the modal. */
-  protected readonly zoomed = signal<ResolvedCard | null>(null);
-  private readonly zoomDialog = viewChild.required<ElementRef<HTMLDialogElement>>('zoomDialog');
+  /** Row shown in the card dialog (enlarged, with its versions). */
+  protected readonly dialogRow = signal<number | null>(null);
+  /** The row of the card dialog, while it is open and that row exists. */
+  protected readonly dialogCard = computed(() => {
+    const index = this.dialogRow();
+    const row = index === null ? undefined : this.rows()[index];
+    return index !== null && row ? { index, row } : null;
+  });
+  private readonly cardDialog = viewChild.required<ElementRef<HTMLDialogElement>>('cardDialog');
+  /** The version the pointer is on in the card dialog, shown in place of the card's image. */
+  protected readonly preview = signal<Preview | null>(null);
+  /** Images (every face) of the versions shown in this session, by print id: they are in the cache. */
+  private readonly previewImages = new Map<string, string[]>();
   protected readonly resolving = signal(false);
   protected readonly resolved = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -297,6 +298,7 @@ export class App {
     this.rowsFromList = request.entries !== undefined;
     this.resolvedLang = this.lang();
     this.generation++;
+    this.closeCard();
     this.rows.set([]);
     this.error.set(null);
     this.notice.set(null);
@@ -427,7 +429,7 @@ export class App {
       this.rows.set(old);
     } else {
       this.generation++;
-      this.closeVersions();
+      this.closeCard();
       this.rows.set([
         ...added.added.map((entry): Row => ({ entry, state: 'pending' })),
         ...old.map(
@@ -461,7 +463,7 @@ export class App {
     const interrupted = this.sideRequests.size > 0;
     this.stopSideRequests();
     this.generation++;
-    this.closeVersions();
+    this.closeCard();
     this.rows.update((rows) =>
       rows
         .filter((_, i) => i !== index)
@@ -490,34 +492,75 @@ export class App {
     );
   }
 
-  /** Open or close the versions panel of a row; the versions are loaded when it is first opened. */
-  protected toggleVersions(index: number, event: MouseEvent): void {
-    if (this.openVersions() === index) return this.closeVersions();
-    this.openPanel(index, event.currentTarget as HTMLElement);
+  /**
+   * Open the card dialog of a row: the card enlarged and its versions beside it (loaded the first
+   * time). Esc, the × or a click outside close it.
+   */
+  protected openCard(index: number): void {
+    const row = this.rows()[index];
+    if (!row || row.state === 'pending') return;
+    this.stopPreview();
+    this.dialogRow.set(index);
+    const dialog = this.cardDialog().nativeElement;
+    if (!dialog.open) dialog.showModal();
     void this.loadVersions(index);
   }
 
+  protected closeCard(): void {
+    const dialog = this.cardDialog().nativeElement;
+    if (dialog.open) dialog.close(); // the (close) event does the rest
+    else this.onCardDialogClose();
+  }
+
+  protected onCardDialogClose(): void {
+    this.stopPreview();
+    this.dialogRow.set(null);
+  }
+
+  /** A click on the dialog itself or the empty space around its content is a click on the dark backdrop. */
+  protected onCardDialogClick(event: MouseEvent): void {
+    const target = event.target as Element | null;
+    if (target === event.currentTarget || target?.matches('.card-dialog-body, .stage')) this.closeCard();
+  }
+
+  private stopPreview(): void {
+    this.preview.set(null);
+  }
+
+  /** The version previewed in the card dialog of a row. */
+  protected previewOf(index: number): Preview | null {
+    const preview = this.preview();
+    return preview?.index === index && this.dialogRow() === index ? preview : null;
+  }
+
+  /** What the dialog's image shows: "Kamigawa: Neon Dynasty · NEO #141 · 2022 · Italiano". */
+  protected shownCaption(row: Row, preview: Preview | null): string {
+    const version = preview ? row.versions?.find((v) => v.id === preview.id) : undefined;
+    if (version) {
+      const lang = languageOf(version.lang)?.name ?? version.lang.toUpperCase();
+      return [version.setName, `${version.setCode.toUpperCase()} #${version.collectorNumber}`, version.releasedAt.slice(0, 4), lang]
+        .filter(Boolean)
+        .join(' · ');
+    }
+    const card = row.card;
+    if (!card) return '';
+    return `${card.setCode.toUpperCase()} #${card.collectorNumber} · ${languageOf(card.lang)?.name ?? card.lang.toUpperCase()}`;
+  }
+
   /**
-   * Open the versions panel of a row next to its buttons: towards the left when there is no room
-   * on the right, upwards when there is no room below and more room above.
+   * The pointer (or the keyboard focus) is on a version of the card dialog: when its image is
+   * already in the cache it takes the place of the card's. Nothing is fetched: clicking the
+   * version is what asks Gatherer.
    */
-  private openPanel(index: number, anchor: HTMLElement): void {
-    const rect = (anchor.closest('.versions') ?? anchor).getBoundingClientRect();
-    this.panelOnLeft.set(rect.left + PANEL_WIDTH_PX > document.documentElement.clientWidth - 16);
-    const below = window.innerHeight - rect.bottom - 16;
-    const up = below < panelMaxHeightPx() && rect.top > below;
-    this.panelUp.set(up);
-    this.panelUpMaxHeight.set(up ? Math.min(panelMaxHeightPx(), rect.top - 16) : null);
-    this.openVersions.set(index);
+  protected previewVersion(index: number, id: string): void {
+    const row = this.rows()[index];
+    const option = row?.versions?.find((v) => v.id === id);
+    const files = this.previewImages.get(id) ?? (option?.thumbnail ? [option.thumbnail] : null);
+    this.preview.set(row && files && id !== row.card?.scryfallId ? { index, id, files } : null);
   }
 
-  protected closeVersions(): void {
-    this.openVersions.set(null);
-  }
-
-  protected onDocumentClick(event: MouseEvent): void {
-    if (this.openVersions() === null) return;
-    if (!(event.target instanceof Element) || !event.target.closest('.versions')) this.closeVersions();
+  protected endPreview(index: number, id: string): void {
+    this.preview.update((p) => (p?.index === index && p.id === id ? null : p));
   }
 
   /** Load the versions of a row (once; again after an error). */
@@ -548,11 +591,10 @@ export class App {
   }
 
   /**
-   * "Search Gatherer" (on the card): try the next few English prints on Gatherer in the list's
-   * language. The versions are loaded first if needed; the panel opens when something is found.
+   * "Search Gatherer" (in the card dialog): try the next few English prints on Gatherer in the
+   * list's language. The versions are loaded first if needed.
    */
-  protected async searchGatherer(index: number, event: MouseEvent): Promise<void> {
-    const anchor = event.currentTarget as HTMLElement;
+  protected async searchGatherer(index: number): Promise<void> {
     if (!this.rows()[index] || this.rows()[index]?.searching) return;
     const gen = this.generation;
     this.patchRow(index, gen, { searching: true, searchNote: undefined });
@@ -579,11 +621,10 @@ export class App {
           versions: [...(r.versions ?? []), ...found],
           gathererSearch: result.gathererSearch,
           searchNote: foundAny
-            ? `Found ${found.length} of ${tried} on Gatherer: see the versions.`
+            ? `Found ${found.length} of ${tried} on Gatherer: they are in the list.`
             : `Nothing new on Gatherer in ${tried}.`,
         };
       });
-      if (foundAny && gen === this.generation) this.openPanel(index, anchor);
     } catch (error) {
       this.patchRow(index, gen, {
         searching: false,
@@ -597,17 +638,19 @@ export class App {
     return languageOf(this.resolvedLang)?.english ?? this.resolvedLang.toUpperCase();
   }
 
-  /** The user picked another version in the panel. */
+  /** The user picked another version in the card dialog (which stays open, to see it). */
   protected async chooseVersion(index: number, id: string): Promise<void> {
-    this.closeVersions();
     const row = this.rows()[index];
     if (!row || id === row.card?.scryfallId) return;
     const gen = this.generation;
+    // the version being left keeps its preview (its images are in the cache)
+    if (row.card) this.previewImages.set(row.card.scryfallId, row.card.images);
     this.patchRow(index, gen, { switching: true, versionError: undefined });
-    const mark = (r: Row, available: Availability): PrintOption[] | undefined =>
-      r.versions?.map((v) => (v.id === id ? { ...v, available } : v));
+    const mark =(r: Row, available: Availability, thumbnail: string | null = null): PrintOption[] | undefined =>
+      r.versions?.map((v) => (v.id === id ? { ...v, available, thumbnail: thumbnail ?? v.thumbnail } : v));
     try {
       const card = await this.api.print(id, this.resolvedLang);
+      this.previewImages.set(card.scryfallId, card.images);
       this.patchRow(index, gen, (r) => ({
         // the print chosen by hand is remembered when the list is saved
         entry: { ...r.entry, printId: card.scryfallId },
@@ -615,7 +658,7 @@ export class App {
         state: 'ok',
         message: undefined,
         switching: false,
-        versions: mark(r, card.incomplete ? 'front' : 'full'),
+        versions: mark(r, card.incomplete ? 'front' : 'full', card.images[0] ?? null),
       }));
     } catch (error) {
       this.patchRow(index, gen, (r) => ({
@@ -786,27 +829,11 @@ export class App {
   protected async clearCache(): Promise<void> {
     try {
       const { count } = await this.api.clearCache();
+      this.previewImages.clear(); // their files are gone
       this.notice.set(`Cache cleared (${count} files).`);
     } catch (error) {
       this.error.set(errorMessage(error));
     }
-  }
-
-  /** Show a card enlarged (both faces for a double-faced card). Esc, the × or a click outside close it. */
-  protected openZoom(card: ResolvedCard): void {
-    this.closeVersions();
-    this.zoomed.set(card);
-    const dialog = this.zoomDialog().nativeElement;
-    if (!dialog.open) dialog.showModal();
-  }
-
-  protected closeZoom(): void {
-    this.zoomDialog().nativeElement.close(); // the (close) event clears `zoomed`
-  }
-
-  /** A click on the dialog itself (not on its content) is a click on the dark backdrop. */
-  protected onZoomClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) this.closeZoom();
   }
 
   protected imageUrl(file: string): string {

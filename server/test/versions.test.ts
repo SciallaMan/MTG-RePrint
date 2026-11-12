@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
+import { rm } from 'node:fs/promises';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import path from 'node:path';
 import { test } from 'node:test';
 import { createHandler, parseGathererSearchRequest, parsePrintRequest, parsePrintsRequest } from '../src/app.ts';
-import { gathererLink } from '../src/gatherer.ts';
-import { scryfallUrl } from '../src/scryfall.ts';
+import { Gatherer, gathererLink } from '../src/gatherer.ts';
+import { Http } from '../src/http.ts';
+import { Resolver } from '../src/resolver.ts';
+import { Scryfall, scryfallUrl } from '../src/scryfall.ts';
 import type { ResolvedCard } from '../src/types.ts';
-import { card, json, pageFor, png, rig, searchRoute, tempLists } from './helpers.ts';
+import { RID, card, json, pageFor, png, rig, searchRoute, tempLists } from './helpers.ts';
 
 const ID_OK = '11111111-1111-1111-1111-111111111111';
 const ID_NO_IMAGE = '22222222-2222-2222-2222-222222222222';
@@ -54,6 +58,40 @@ test('versions list the preferred language first, then English, and remember wha
   await resolver.print(ID_NO_IMAGE);
   const after = await resolver.versions('Lightning Bolt', 'it');
   assert.deepEqual(after.map((v) => v.available), ['full', 'none', null]);
+});
+
+test('versions carry the thumbnail of the prints whose image is in the cache, also after a restart', async () => {
+  const { resolver, cache } = await rig(route);
+  assert.deepEqual((await resolver.versions('Lightning Bolt', 'it')).map((v) => v.thumbnail), [null, null, null]);
+  await resolver.print(ID_OK);
+  await resolver.print(ID_NO_IMAGE);
+  const file = `gatherer_${RID}.png`;
+  assert.deepEqual((await resolver.versions('Lightning Bolt', 'it')).map((v) => v.thumbnail), [file, null, null]);
+
+  // a new run on the same cache: what was found is read from disk, without asking Gatherer
+  const urls: string[] = [];
+  const http = new Http({
+    userAgent: 'test',
+    delays: { scryfallMs: 0, gathererMs: 0 },
+    fetch: async (u) => {
+      urls.push(u);
+      return route(new URL(u)) ?? new Response('', { status: 404 });
+    },
+    sleep: async () => undefined,
+  });
+  const restarted = new Resolver(new Scryfall(http, cache), new Gatherer(http, cache));
+  const again = await restarted.versions('Lightning Bolt', 'it');
+  assert.deepEqual(again.map((v) => [v.available, v.thumbnail]), [['full', file], [null, null], [null, null]]);
+  assert.ok(!urls.some((u) => u.includes('gatherer')), 'no request to Gatherer');
+  // and the print is used again without reading its Gatherer page
+  const reused = await restarted.print(ID_OK);
+  assert.deepEqual(reused.images?.files, [file]);
+  assert.ok(!urls.some((u) => u.includes('gatherer')), 'the page is not read again');
+
+  // the image is gone: nothing is known any more
+  await rm(path.join(cache.dir, file));
+  const cleared = new Resolver(new Scryfall(http, cache), new Gatherer(http, cache));
+  assert.deepEqual((await cleared.versions('Lightning Bolt', 'it'))[0]?.thumbnail, null);
 });
 
 test('request validation for /api/prints and /api/print', () => {

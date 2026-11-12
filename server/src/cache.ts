@@ -75,6 +75,16 @@ export class Cache {
     }
   }
 
+  /** True if this image is in the cache (no read of its content). */
+  async hasImage(file: string): Promise<boolean> {
+    if (!IMAGE_FILE.test(file)) return false;
+    try {
+      return (await stat(path.join(this.dir, file))).isFile();
+    } catch {
+      return false;
+    }
+  }
+
   async writeImage(file: string, data: Uint8Array): Promise<void> {
     if (!IMAGE_FILE.test(file)) throw new Error(`Invalid image name: ${file}`);
     await this.ensure();
