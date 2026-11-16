@@ -2,6 +2,15 @@
 
 All notable changes to this project are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The card window lists the prints in the list's language in two parts: first those **Gatherer** has (usually the best images), then those **Scryfall** lists. Gatherer's list comes from Gatherer's own page of the card's prints, in one request: it has the translations Scryfall does not know and versions such as *Through the Omenpaths* ("Intuizione di Quint" for *Shadow of the Goblin*), and choosing one uses its image straight away, both faces of a double-faced card included. **Find more … versions on Gatherer** is gone, and the English prints are no longer mixed in: the language of the list can be changed in the window.
+- **Two image sources.** A version picked from **Scryfall**'s list now uses Scryfall's own image instead of Gatherer's, so for each card you can choose the better of the two (the same print often looks different on the two sites). The caption under the enlarged card says where the image comes from, and a saved list remembers the choice. Cards found automatically, and the versions of Gatherer's list, still use Gatherer's images.
+- **Clear cache** asks for confirmation first (the saved lists are never touched).
+- In that list a small icon says whether the image of a print is already downloaded (it shows at once) or will be downloaded (from Gatherer or Scryfall, the site of its list) when chosen, instead of "✓ on Gatherer". Only "front only" and "no image" are still written.
+
 ## [0.6.1]
 
 ### Added

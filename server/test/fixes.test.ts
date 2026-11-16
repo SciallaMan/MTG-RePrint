@@ -35,7 +35,6 @@ test('with no complete print, the front-only one is used and the card says so', 
   assert.ok(c?.type === 'card' && c.status === 'ok');
   assert.equal(c.card.images.length, 1);
   assert.equal(c.card.incomplete, true);
-  assert.equal((await resolver.versions('Delver of Secrets', 'it'))[0]?.available, 'front');
   assert.match(c.card.note ?? '', /back face not available/);
 });
 

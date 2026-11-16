@@ -1,6 +1,6 @@
 <header class="top">
   <h1>MTG RePrint</h1>
-  <p class="tag">Paste a decklist, get a print-ready PDF of proxies. Data from Scryfall, images from Gatherer.</p>
+  <p class="tag">Paste a decklist, get a print-ready PDF of proxies. Data from Scryfall, images from Gatherer or Scryfall.</p>
 </header>
 
 <main>
@@ -210,7 +210,7 @@
                 <button type="button" class="open-card placeholder" aria-label="Choose a version" (click)="openCard(rowIndex)">?</button>
               }
               @if (row.switching) {
-                <span class="image-state" role="status" aria-label="Checking Gatherer"><span class="spinner" aria-hidden="true"></span></span>
+                <span class="image-state" role="status" aria-label="Loading the image"><span class="spinner" aria-hidden="true"></span></span>
               }
             </div>
             <div class="meta">
@@ -233,7 +233,7 @@
                   ><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall</span>
                 }
                 @if (isPinned(row)) {
-                  <span class="pinned">Version chosen by hand</span>
+                  <span class="pinned">Version chosen by hand{{ card.imageSource === 'scryfall' ? ' · image from Scryfall' : '' }}</span>
                 }
                 @if (card.requested && !card.requestedSetFound) {
                   <span class="warn">{{ card.requested }} not available: another print was used</span>
@@ -271,6 +271,21 @@
     @let shown = previewOf(rowIndex);
     <div class="card-dialog-body">
       <div class="stage">
+        <div class="stage-head">
+          @if (row.card?.gathererUrl; as url) {
+            <a class="name" [href]="url" target="_blank" rel="noopener noreferrer" title="Open on Gatherer">{{ row.card.printedName }}</a>
+          } @else {
+            <strong class="name">{{ row.card?.printedName ?? row.entry.name }}</strong>
+          }
+          <label class="lang-pick">
+            <span>Versions in</span>
+            <select [value]="dialogLang()" (change)="changeDialogLang(value($event))">
+              @for (language of languages; track language.code) {
+                <option [value]="language.code">{{ language.name }}</option>
+              }
+            </select>
+          </label>
+        </div>
         <div class="stage-images">
           @if (shown?.files; as files) {
             @for (file of files; track file) {
@@ -284,83 +299,84 @@
             <span class="stage-empty">Choose a version to see its image</span>
           }
           @if (row.switching) {
-            <span class="image-state" role="status" aria-label="Checking Gatherer">
+            <span class="image-state" role="status" aria-label="Loading the image">
               <span class="spinner" aria-hidden="true"></span>
             </span>
           }
         </div>
         <p class="stage-caption">{{ shownCaption(row, shown) }}</p>
+        @if (row.card?.gathererOnly) {
+          <span class="only-gatherer on-dark"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall: name and image from Gatherer</span>
+        }
+        @if (row.versionError; as message) {
+          <span class="stage-error" role="alert">{{ message }}</span>
+        }
       </div>
 
-      <aside class="side">
-        <div class="side-head">
-          @if (row.card?.gathererUrl; as url) {
-            <a class="name" [href]="url" target="_blank" rel="noopener noreferrer" title="Open on Gatherer">{{ row.card.printedName }}</a>
-          } @else {
-            <strong class="name">{{ row.card?.printedName ?? row.entry.name }}</strong>
-          }
-          @if (row.card?.gathererOnly) {
-            <span class="only-gatherer"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7v4.5M8 4.6v.1" /></svg>Not on Scryfall: name and image from Gatherer</span>
-          }
-        </div>
-        <div class="version-list" role="listbox" aria-label="Versions">
-          @for (group of versionGroups(row); track group.label) {
-            <p class="group" role="presentation">{{ group.label }}</p>
-            @for (option of group.options; track option.id) {
-              <button
-                type="button"
-                role="option"
-                class="option"
-                [class.current]="option.id === row.card?.scryfallId"
-                [attr.aria-selected]="option.id === row.card?.scryfallId"
-                [disabled]="option.disabled || row.switching"
-                (click)="chooseVersion(rowIndex, option.id)"
-                (mouseenter)="previewVersion(rowIndex, option.id)"
-                (focus)="previewVersion(rowIndex, option.id)"
-                (mouseleave)="endPreview(rowIndex, option.id)"
-                (blur)="endPreview(rowIndex, option.id)"
-              >
-                <span class="title">{{ option.title }}</span>
-                <span class="detail">
-                  {{ option.detail }}
-                  @if (option.status) {
-                    <span class="status" [class.bad]="option.disabled">· {{ option.status }}</span>
+      <aside class="side" aria-label="Versions">
+        @for (source of sources; track source) {
+          @let list = versionList(row, source);
+          @let choices = versionChoices(row, source);
+          <section class="side-section">
+            <div class="side-head">
+              <h2>{{ sourceName[source] }}</h2>
+              <span class="sub">
+                @if (list?.state === 'loaded') {
+                  {{ choices.length }} {{ choices.length === 1 ? 'print' : 'prints' }} in {{ languageName(dialogLang()) }}
+                } @else {
+                  {{ languageName(dialogLang()) }}
+                }
+              </span>
+            </div>
+            <div class="version-list" role="listbox" [attr.aria-label]="sourceName[source] + ' versions, with ' + sourceName[source] + ' images'">
+              @for (option of choices; track option.id) {
+                <button
+                  type="button"
+                  role="option"
+                  class="option"
+                  [class.current]="option.current"
+                  [attr.aria-selected]="option.current"
+                  [disabled]="option.disabled || row.switching"
+                  (click)="chooseVersion(rowIndex, option.id)"
+                  (mouseenter)="previewVersion(rowIndex, option.id)"
+                  (focus)="previewVersion(rowIndex, option.id)"
+                  (mouseleave)="endPreview(rowIndex, option.id)"
+                  (blur)="endPreview(rowIndex, option.id)"
+                >
+                  <span class="title">{{ option.title }}</span>
+                  <span class="detail">
+                    {{ option.detail }}
+                    @if (option.status) {
+                      <span class="status" [class.bad]="option.disabled">· {{ option.status }}</span>
+                    }
+                  </span>
+                  @if (option.cached) {
+                    <span class="cache-mark cached" title="Image already downloaded: it shows at once">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" /><path d="M5.2 8.2l2 2 3.6-4" /></svg>
+                      <span class="visually-hidden">downloaded</span>
+                    </span>
+                  } @else if (!option.disabled) {
+                    <span class="cache-mark" [title]="'Not downloaded yet: fetched from ' + sourceName[source] + ' when you choose it'">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v7.5M4.8 7l3.2 3.2L11.2 7M3.5 13h9" /></svg>
+                      <span class="visually-hidden">not downloaded</span>
+                    </span>
                   }
-                </span>
-              </button>
-            }
-          }
-          @if (row.versionsState === 'loading') {
-            <p class="hint">Loading versions…</p>
-          } @else if (row.versionsState === 'error') {
-            <p class="hint">
-              Versions not available.
-              <button type="button" class="link" (click)="loadVersions(rowIndex)">Try again</button>
-            </p>
-          } @else if (row.versionsState === 'loaded' && row.versions?.length === 0) {
-            <p class="hint">No other versions.</p>
-          }
-        </div>
-        @if (canSearchGatherer(row) || row.searchNote || row.versionError) {
-          <div class="side-foot">
-            @if (canSearchGatherer(row)) {
-              <button
-                type="button"
-                class="link search-gatherer"
-                [disabled]="row.searching || row.switching"
-                [title]="searchGathererTitle(row)"
-                (click)="searchGatherer(rowIndex)"
-              >
-                {{ row.searching ? 'Searching Gatherer…' : 'Find more ' + resolvedLangName() + ' versions on Gatherer' }}
-              </button>
-            }
-            @if (row.searchNote) {
-              <span class="sub">{{ row.searchNote }}</span>
-            }
-            @if (row.versionError; as message) {
-              <span class="warn">{{ message }}</span>
-            }
-          </div>
+                </button>
+              }
+              @if (!list || list.state === 'loading') {
+                <p class="hint">Loading…</p>
+              } @else if (list.state === 'error') {
+                <p class="hint">
+                  {{ source === 'gatherer' ? "Gatherer's list could not be read." : 'Scryfall could not be reached.' }}
+                  <button type="button" class="link" (click)="loadVersions(rowIndex, dialogLang())">Try again</button>
+                </p>
+              } @else if (choices.length === 0) {
+                <p class="hint">
+                  {{ source === 'gatherer' ? 'Gatherer has' : 'Scryfall lists' }} no print in {{ languageName(dialogLang()) }}.
+                </p>
+              }
+            </div>
+          </section>
         }
       </aside>
 

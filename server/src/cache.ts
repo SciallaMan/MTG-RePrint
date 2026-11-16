@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:
 import path from 'node:path';
 
 /** Names of the image files this app creates (also what /api/images accepts). */
-export const IMAGE_FILE = /^gatherer_[A-Za-z0-9_-]+\.(png|jpg|webp)$/;
+export const IMAGE_FILE = /^(gatherer|scryfall)_[A-Za-z0-9_-]+\.(png|jpg|webp)$/;
 const JSON_FILE = /^api_[0-9a-f]+\.json$/;
 
 /** Write a file in one go: a temporary file next to it, then a rename (readers never see a half-written file). */

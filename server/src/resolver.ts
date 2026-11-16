@@ -1,23 +1,17 @@
 import {
   GATHERER_LANG,
-  GATHERER_SEARCH_SIZE,
   MAX_GATHERER_ONLY_TRIED,
   MAX_PRINTS_TRIED,
   TWO_FACED_LAYOUTS,
 } from './config.ts';
 import type { FoundImages, Gatherer } from './gatherer.ts';
-import { parseGathererLinkId } from './links.ts';
+import { gathererLinkId, parseGathererLinkId } from './links.ts';
 import type { GathererLink } from './links.ts';
 import { isNamed } from './scryfall.ts';
 import type { Scryfall, ScryfallCard } from './scryfall.ts';
+import type { ScryfallImages } from './scryfallimages.ts';
 import { scryfallSetCode } from './setcodes.ts';
-import type { GathererSearch, GathererSearchResponse, PrintOption, PrintsResponse } from './types.ts';
-
-/** Where "Search Gatherer" goes on, after `tried` of `total` candidates; null when none is left. */
-function searchState(total: number, tried: number): GathererSearch | null {
-  const left = total - tried;
-  return left > 0 ? { next: tried, size: Math.min(GATHERER_SEARCH_SIZE, left), left } : null;
-}
+import type { PrintOption } from './types.ts';
 
 export interface Diag {
   /** Ids of the prints found on Scryfall in the preferred language. */
@@ -48,14 +42,19 @@ interface Attempt {
   forSet: boolean;
 }
 
-/** Choose the print of a card: Scryfall says what exists, Gatherer must have the image. */
+/**
+ * Choose the print of a card: Scryfall says what exists, Gatherer must have the image. A version
+ * picked by hand from Scryfall's list (id "scryfall:<id>") uses Scryfall's own scan instead.
+ */
 export class Resolver {
   private readonly scryfall: Scryfall;
   private readonly gatherer: Gatherer;
+  private readonly scryfallImages: ScryfallImages;
 
-  constructor(scryfall: Scryfall, gatherer: Gatherer) {
+  constructor(scryfall: Scryfall, gatherer: Gatherer, scryfallImages: ScryfallImages) {
     this.scryfall = scryfall;
     this.gatherer = gatherer;
+    this.scryfallImages = scryfallImages;
   }
 
   /**
@@ -176,75 +175,44 @@ export class Resolver {
   }
 
   /**
-   * The versions of a card for the dropdown: preferred language first, then English. When Scryfall
-   * has no print in the preferred language, the translations that only Gatherer has come first
-   * (the same English prints that `findCard` tries, so normally no new request is needed).
+   * The prints of a card that Scryfall lists in `lang` (newest first), for the card dialog, with
+   * Scryfall's scans: their ids are "scryfall:<id>" (`scryfallImageId`).
    */
   async versions(name: string, lang: string): Promise<PrintOption[]> {
-    const cards: ScryfallCard[] = [];
-    const seen = new Set<string>();
-    for (const lg of lang === 'en' ? ['en'] : [lang, 'en']) {
-      const searched = lg === lang ? name : await this.englishName(name, lang);
-      for (const card of await this.scryfall.searchPrints(searched, lg)) {
-        if (seen.has(card.id)) continue;
-        seen.add(card.id);
-        cards.push(card);
-      }
-    }
-    const options = await Promise.all(cards.map((card) => this.option(card)));
-    if (lang !== 'en' && options.length > 0 && !options.some((o) => o.lang === lang)) {
-      const { prints } = await this.searchGatherer(name, lang, 0, MAX_GATHERER_ONLY_TRIED);
-      options.unshift(...prints);
-    }
-    return options;
+    return Promise.all((await this.scryfall.searchPrints(name, lang)).map((card) => this.option(card)));
   }
 
   /**
-   * The versions and where "Search Gatherer" starts: after the translations `versions` already
-   * tried when Scryfall has no print in the language, else from the first candidate.
+   * The prints of a card that Gatherer has in `lang` (from its prints list), for the card dialog.
+   * Their ids are Gatherer link ids. Null when the list cannot be had.
    */
-  async versionsWithSearch(name: string, lang: string): Promise<PrintsResponse> {
-    const prints = await this.versions(name, lang);
-    const tried = prints.some((p) => p.lang === lang && !p.gathererOnly) ? 0 : MAX_GATHERER_ONLY_TRIED;
-    const candidates = prints.length > 0 ? await this.translationCandidates(name, lang) : [];
-    return { prints, gathererSearch: searchState(candidates.length, tried) };
-  }
-
-  /**
-   * "Search Gatherer": the translations in `lang` of the next `size` candidates (see
-   * `translationCandidates`) starting at `from`; only those whose image Gatherer has are returned.
-   */
-  async searchGatherer(name: string, lang: string, from: number, size = GATHERER_SEARCH_SIZE): Promise<GathererSearchResponse> {
-    const candidates = await this.translationCandidates(name, lang);
-    const batch = candidates.slice(from, from + size);
-    const prints: PrintOption[] = [];
-    for (const card of batch) {
-      const translated = await this.translation(card, lang);
-      if (translated) prints.push({ ...(await this.option(translated.card)), gathererOnly: true });
-    }
-    return { prints, tried: batch.length, gathererSearch: searchState(candidates.length, from + batch.length) };
-  }
-
-  /**
-   * English prints whose translation in `lang` may exist only on Gatherer: those Scryfall does not
-   * list in `lang` (same set and number), main version of each set first. Single-faced cards only
-   * (`imageInLanguage` cannot read the others).
-   */
-  private async translationCandidates(name: string, lang: string): Promise<ScryfallCard[]> {
-    if (lang === 'en' || !GATHERER_LANG[lang]) return [];
-    const key = (c: ScryfallCard): string => `${c.set}/${c.collector_number}`;
-    const listed = new Set((await this.scryfall.searchPrints(name, lang)).map(key));
-    const english = await this.scryfall.searchPrints(await this.englishName(name, lang), 'en');
-    return mainVersionsFirst(english).filter(
-      (c) => !listed.has(key(c)) && !c.name.includes(' // ') && !TWO_FACED_LAYOUTS.has(c.layout ?? ''),
+  async gathererVersions(name: string, lang: string): Promise<PrintOption[] | null> {
+    const prints = await this.gatherer.printsList(await this.englishName(name, lang), lang);
+    if (!prints) return null;
+    return Promise.all(
+      prints.map(async (print): Promise<PrintOption> => {
+        const id = gathererLinkId({ set: print.set, lang: print.lang, number: print.number, slug: print.slug });
+        const known = await this.gatherer.known(id);
+        return {
+          id,
+          setCode: scryfallSetCode(print.set),
+          setName: print.setName || print.set,
+          collectorNumber: print.number,
+          lang,
+          releasedAt: print.releasedAt,
+          // the list gives the image codes: Gatherer has them (unless trying one failed)
+          available: known.available ?? 'full',
+          thumbnail: known.thumbnail ?? (print.images[0] ? await this.gatherer.cachedImage(print.images[0]) : null),
+        };
+      }),
     );
   }
 
-  /** A print for the versions panel, with what is already known of its image (no request). */
+  /** A print of Scryfall's list for the card dialog, with what Scryfall has of its scans (no request). */
   private async option(card: ScryfallCard): Promise<PrintOption> {
-    const { available, thumbnail } = await this.gatherer.known(card.id);
+    const { available, thumbnail } = await this.scryfallImages.known(card);
     return {
-      id: card.id,
+      id: scryfallImageId(card.id),
       setCode: card.set,
       setName: card.set_name ?? card.set.toUpperCase(),
       collectorNumber: card.collector_number,
@@ -257,12 +225,19 @@ export class Resolver {
 
   /**
    * One print chosen by the user: its Scryfall data and, if Gatherer has them, its images. A
-   * translation id ("<id>:<lang>") is looked up on Gatherer in that language.
+   * translation id ("<id>:<lang>") is looked up on Gatherer in that language; a Scryfall image id
+   * ("scryfall:<id>") takes Scryfall's scans. The card keeps the id it was asked with.
    */
   async print(id: string): Promise<{ card: ScryfallCard | null; images: FoundImages | null; reasons: string[] }> {
     const link = parseGathererLinkId(id);
     if (link) return this.fromLink(link, id);
     const reasons: string[] = [];
+    const scryfallId = parseScryfallImageId(id);
+    if (scryfallId) {
+      const card = await this.scryfall.byId(scryfallId);
+      if (!card) return { card: null, images: null, reasons };
+      return { card: { ...card, id }, images: await this.scryfallImages.imagesOf(card, reasons), reasons };
+    }
     const wanted = parseTranslationId(id);
     const card = await this.scryfall.byId(wanted?.id ?? id);
     if (!card) return { card: null, images: null, reasons };
@@ -274,10 +249,12 @@ export class Resolver {
   }
 
   /**
-   * A print given by its Gatherer link (id from `gathererLinkId`): the image is read from that very
-   * page; the data comes from Scryfall (same set and number, in the page's language, else in
-   * English), or from the page alone when Scryfall does not have the print. A double-faced card
-   * whose print Scryfall lists in that language gets both faces through the multiverseid.
+   * A print given by its Gatherer link (id from `gathererLinkId`, also the id of the prints of a
+   * Gatherer list): its images come from the prints list when one of this session gave their codes
+   * (both faces of a double-faced card), else from the memo of an earlier look-up, else from that
+   * very page. The data comes from Scryfall (same set and number, in the page's language, else in
+   * English), or from the page alone when Scryfall does not have the print. Read from the page, a
+   * double-faced card whose print Scryfall lists in that language gets both faces through the multiverseid.
    */
   private async fromLink(link: GathererLink, id: string): Promise<{ card: ScryfallCard; images: FoundImages | null; reasons: string[] }> {
     const reasons: string[] = [];
@@ -285,6 +262,14 @@ export class Resolver {
     const set = scryfallSetCode(link.set);
     const inLang = await this.scryfall.bySetNumber(set, link.number, lang);
     const english = inLang ?? (lang === 'en' ? null : await this.scryfall.bySetNumber(set, link.number));
+    // given by a prints list of this session (with the printed name), or found before: no page to read
+    const known = (await this.gatherer.imagesFromList(link)) ?? (await this.gatherer.reusable(id));
+    if (known) {
+      await this.gatherer.record(id, known);
+      const printedName = 'printedName' in known && typeof known.printedName === 'string' ? known.printedName : null;
+      const { files, source, incomplete } = known;
+      return { card: linkCard(link, id, lang, inLang, english, printedName), images: { files, source, incomplete }, reasons };
+    }
     const twoFaced = TWO_FACED_LAYOUTS.has((inLang ?? english)?.layout ?? '');
     if (inLang && twoFaced) {
       // both faces through the multiverseid: the page shows only the front
@@ -298,6 +283,7 @@ export class Resolver {
       return { card, images: null, reasons };
     }
     const images: FoundImages = { files: [page.file], source: `Gatherer link ${link.set}/${link.lang}/${link.number}`, incomplete: twoFaced };
+    await this.gatherer.record(id, images);
     return { card, images, reasons };
   }
 }
@@ -334,6 +320,18 @@ function nameFromSlug(slug: string): string {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+}
+
+const SCRYFALL_IMAGE_PREFIX = 'scryfall:';
+
+/** Id of a print with Scryfall's scans instead of Gatherer's images (the versions of Scryfall's list). */
+export function scryfallImageId(id: string): string {
+  return `${SCRYFALL_IMAGE_PREFIX}${id}`;
+}
+
+/** The Scryfall id of a Scryfall image id, or null for the other ids. */
+export function parseScryfallImageId(id: string): string | null {
+  return id.startsWith(SCRYFALL_IMAGE_PREFIX) ? id.slice(SCRYFALL_IMAGE_PREFIX.length) : null;
 }
 
 /** Id of a translation that only Gatherer has: the Scryfall id of the English print and the language. */

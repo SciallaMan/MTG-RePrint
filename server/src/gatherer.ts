@@ -1,12 +1,16 @@
 import {
   GATHERER_LANG,
+  MAX_GATHERER_PRINT_PAGES,
   MISSING_PAGE_MAX_AGE_MS,
   TWO_FACED_LAYOUTS,
   gathererLegacyImageUrl,
   gathererPageUrl,
+  gathererPrintsUrl,
   gathererStaticUrl,
 } from './config.ts';
 import type { Cache } from './cache.ts';
+import { parsePrintsPayload } from './gathererprints.ts';
+import type { GathererPrint } from './gathererprints.ts';
 import { gathererLinkUrl, safeDecode } from './links.ts';
 import type { GathererLink } from './links.ts';
 import { gathererSetCode } from './setcodes.ts';
@@ -40,7 +44,7 @@ interface PageMemo {
  * What is remembered on disk about a print whose image was found: its image files (one per face)
  * and where they came from. A print whose files are all still in the cache is used again with no
  * request (Gatherer image names are tied to their content); its front is the thumbnail of the
- * versions panel. Misses are not kept (Gatherer may add the image later, and the panel would
+ * card dialog. Misses are not kept (Gatherer may add the image later, and the dialog would
  * disable that print for good).
  */
 interface PrintMemo {
@@ -80,6 +84,8 @@ function decodeEntities(text: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
 }
+
+const listedKey = (set: string, lang: string, num: string): string => `${set.toUpperCase()}/${lang.toLowerCase()}/${num}`;
 
 /** Name of the card as printed, from the title of its Gatherer page ("Cayth, Celebre Meccanica  MTG - ..."). */
 export function printedNameFromPage(html: string): string | null {
@@ -157,6 +163,8 @@ export class Gatherer {
   private pagesBlockedUntil = 0;
   /** Scryfall id -> what was found for that print, in this session (`file`: its front image). */
   private readonly knownPrints = new Map<string, KnownEntry>();
+  /** "SET/lang/number" -> the print as a prints list gave it (its image codes). */
+  private readonly listed = new Map<string, GathererPrint>();
 
   constructor(http: Http, cache: Cache, now: () => number = Date.now) {
     this.http = http;
@@ -277,6 +285,84 @@ export class Gatherer {
     return { file: null, reason: page?.reason ?? `${label}: no card image on this Gatherer page` };
   }
 
+  /**
+   * Every print of a card that Gatherer has in a language (`language` is a Scryfall code; `name`
+   * the English name), read from its prints list and cached like Scryfall's answers (a stale copy is
+   * used when Gatherer cannot be reached). Null when the list cannot be had or read.
+   */
+  async printsList(name: string, language: string): Promise<GathererPrint[] | null> {
+    const lang = GATHERER_LANG[language];
+    const slug = gathererSlug(name.split(' // ')[0] ?? name);
+    if (!lang || !slug) return null;
+    const key = this.cache.jsonKey('gatherer-prints', { slug, lang });
+    const cached = await this.cache.readJson(key);
+    const fromCache = Array.isArray(cached?.value) ? (cached.value as GathererPrint[]) : null;
+    let prints = fromCache && !this.cache.isStale(cached, key) ? fromCache : null;
+    if (!prints) {
+      prints = await this.downloadPrintsList(slug, lang);
+      if (prints) await this.cache.writeJson(key, prints);
+      else prints = fromCache;
+    }
+    for (const print of prints ?? []) this.listed.set(listedKey(print.set, print.lang, print.number), print);
+    return prints;
+  }
+
+  /** All the pages of a prints list; [] when Gatherer has no such card in that language. */
+  private async downloadPrintsList(slug: string, lang: string): Promise<GathererPrint[] | null> {
+    const prints: GathererPrint[] = [];
+    let totalPages = 1;
+    for (let page = 1; page <= Math.min(totalPages, MAX_GATHERER_PRINT_PAGES); page++) {
+      let res: Response;
+      try {
+        res = await this.http.get(gathererPrintsUrl(slug, lang, page), 'gatherer', { attempts: 3, headers: { RSC: '1' } });
+      } catch {
+        return null;
+      }
+      if (res.status === 404) {
+        await res.arrayBuffer().catch(() => undefined);
+        return prints;
+      }
+      const type = res.headers.get('Content-Type') ?? '';
+      if (!res.ok || !type.includes('text/x-component')) {
+        await res.arrayBuffer().catch(() => undefined);
+        return null;
+      }
+      try {
+        const answer = parsePrintsPayload(await res.text());
+        prints.push(...answer.prints);
+        totalPages = answer.totalPages;
+      } catch {
+        return null; // the site changed: the card dialog says the list is not available
+      }
+    }
+    return prints;
+  }
+
+  /** Front image of a listed print, if it is already in the cache (a thumbnail). */
+  async cachedImage(rid: string): Promise<string | null> {
+    for (const ext of ['png', 'webp']) {
+      const file = `gatherer_${rid.toUpperCase()}.${ext}`;
+      if (await this.cache.hasImage(file)) return file;
+    }
+    return null;
+  }
+
+  /**
+   * The images of a print of a Gatherer link when a prints list of this session gave its image
+   * codes: downloaded straight away, without reading its page. Null when it was not listed.
+   */
+  async imagesFromList(link: GathererLink): Promise<(FoundImages & { printedName: string }) | null> {
+    const print = this.listed.get(listedKey(link.set, link.lang, link.number));
+    if (!print) return null;
+    const files: string[] = [];
+    for (const rid of print.images) {
+      const file = await this.imageById(rid);
+      if (!file) return null;
+      files.push(file);
+    }
+    return { files, source: `Gatherer prints list ${link.set}/${link.lang}/${link.number}`, incomplete: false, printedName: print.printedName };
+  }
+
   /** Download the image with this Gatherer image code (PNG, else WebP). */
   private async imageById(rid: string): Promise<string | null> {
     for (const ext of ['png', 'webp']) {
@@ -341,7 +427,7 @@ export class Gatherer {
    * The images of a print found before, when they are all still in the cache: no request at all.
    * Only complete prints: for a double-faced card without its back, the back is looked for again.
    */
-  private async reusable(id: string): Promise<FoundImages | null> {
+  async reusable(id: string): Promise<FoundImages | null> {
     const found = await this.remembered(id);
     if (found?.entry.available !== 'full') return null;
     for (const file of found.entry.files) {

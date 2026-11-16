@@ -18,8 +18,21 @@ export interface ScryfallCard {
   set_name?: string;
   released_at?: string;
   scryfall_uri?: string;
-  /** Double-faced and split cards: the faces (the printed name is here, not on the card). */
-  card_faces?: { name: string; printed_name?: string }[];
+  /** 'missing' or 'placeholder': Scryfall has no real scan of this print. */
+  image_status?: string;
+  /** Scryfall's scans of the print (single-faced cards and split cards: one image). */
+  image_uris?: ScryfallImageUris;
+  /**
+   * Double-faced and split cards: the faces (the printed name is here, not on the card; for
+   * double-faced cards also each face's scan).
+   */
+  card_faces?: { name: string; printed_name?: string; image_uris?: ScryfallImageUris }[];
+}
+
+/** The sizes of a Scryfall scan that this app uses. */
+export interface ScryfallImageUris {
+  png?: string;
+  large?: string;
 }
 
 /** Name in the language of the print; for cards with faces, the faces joined by " // ". */
@@ -60,7 +73,10 @@ function isNotFound(value: unknown): boolean {
   return typeof value === 'object' && value !== null && (value as Record<string, unknown>)['__404__'] === true;
 }
 
-/** Scryfall: DATA only (which prints exist). Images never come from here. */
+/**
+ * Scryfall's API: the DATA (which prints exist, names, sets). Its scans are downloaded by
+ * `ScryfallImages`, only for the versions picked from Scryfall's list in the card dialog.
+ */
 export class Scryfall {
   private readonly http: Http;
   private readonly cache: Cache;

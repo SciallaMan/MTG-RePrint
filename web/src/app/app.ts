@@ -4,7 +4,7 @@ import { Api } from './api';
 import type {
   Availability,
   DeckEntry,
-  GathererSearch,
+  ImageSource,
   PrintOption,
   ResolveEvent,
   ResolveRequest,
@@ -22,24 +22,25 @@ interface Row {
   state: 'pending' | 'ok' | 'not_found' | 'error';
   card?: ResolvedCard;
   message?: string;
-  /** Versions for the dropdown, once loaded. */
-  versions?: PrintOption[];
-  versionsState?: 'loading' | 'loaded' | 'error';
-  /** Where "Search Gatherer" goes on, or null when there is nothing (more) to look for. */
-  gathererSearch?: GathererSearch | null;
-  /** A "Search Gatherer" is running. */
-  searching?: boolean;
-  /** Outcome of the last "Search Gatherer". */
-  searchNote?: string;
-  /** A version chosen in the dropdown is being fetched. */
+  /**
+   * Versions of the card dialog, by language: the prints Gatherer has (with Gatherer's images) and
+   * those Scryfall lists (with Scryfall's scans).
+   */
+  lists?: Record<string, Partial<Record<Source, VersionList>>>;
+  /** A version chosen in the card dialog is being fetched. */
   switching?: boolean;
-  /** Why the version chosen in the dropdown could not be used. */
+  /** Why the version chosen in the card dialog could not be used. */
   versionError?: string;
 }
 
-interface VersionGroup {
-  label: string;
-  options: VersionChoice[];
+/** Where a list of versions, and the images of its versions, come from. */
+type Source = ImageSource;
+const SOURCES: readonly Source[] = ['gatherer', 'scryfall'];
+const SOURCE_NAME: Record<Source, string> = { gatherer: 'Gatherer', scryfall: 'Scryfall' };
+
+interface VersionList {
+  state: 'loading' | 'loaded' | 'error';
+  prints: PrintOption[];
 }
 
 interface VersionChoice {
@@ -48,9 +49,13 @@ interface VersionChoice {
   title: string;
   /** "NEO #141 · 2022". */
   detail: string;
-  /** What Gatherer has, once asked. */
+  /** What the list's source has of its images, once known. */
   status: string;
   disabled: boolean;
+  /** The print in use (the same id). */
+  current: boolean;
+  /** Its image is already in the cache: it shows (and is used) at once. */
+  cached: boolean;
 }
 
 /** A version shown in the card dialog in place of the card, while the pointer is on it (only when its image is in the cache). */
@@ -69,8 +74,8 @@ interface Settings {
   cutMarks: boolean;
 }
 
-/** Shown under a version in the panel, once Gatherer has been asked about it. */
-const AVAILABILITY_TEXT: Record<Availability, string> = { full: '✓ on Gatherer', front: 'front only', none: 'no image' };
+/** Said under a version in the card dialog when its source has not all its images (nothing when it has them). */
+const AVAILABILITY_TEXT: Record<Availability, string> = { full: '', front: 'front only', none: 'no image' };
 
 const STORAGE_KEY = 'mtg-reprint.settings';
 /** The version whose "new version" notice was closed: it is not shown again for that version. */
@@ -107,6 +112,45 @@ export function cardNameOf(line: string): string {
     .replace(/^\d+x?\s+/i, '')
     .replace(/\s+(\(|\[|#).*$/, '')
     .trim();
+}
+
+/** The versions of a row's lists, each changed by `change`. */
+function mapVersions(lists: Row['lists'], change: (v: PrintOption) => PrintOption): Row['lists'] {
+  if (!lists) return lists;
+  const mapped: NonNullable<Row['lists']> = {};
+  for (const [lang, bySource] of Object.entries(lists)) {
+    mapped[lang] = {};
+    for (const source of SOURCES) {
+      const list = bySource[source];
+      if (list) mapped[lang][source] = { ...list, prints: list.prints.map(change) };
+    }
+  }
+  return mapped;
+}
+
+/** The lists of a row without those still loading (their answer is dropped after a new search). */
+function settledLists(lists: Row['lists']): Row['lists'] {
+  if (!lists) return lists;
+  const settled: NonNullable<Row['lists']> = {};
+  for (const [lang, bySource] of Object.entries(lists)) {
+    settled[lang] = {};
+    for (const source of SOURCES) {
+      const list = bySource[source];
+      if (list && list.state !== 'loading') settled[lang][source] = list;
+    }
+  }
+  return settled;
+}
+
+/** A version of a row, in any of its lists. */
+function findVersion(row: Row, id: string): PrintOption | undefined {
+  for (const bySource of Object.values(row.lists ?? {})) {
+    for (const source of SOURCES) {
+      const found = bySource[source]?.prints.find((v) => v.id === id);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 /** The language with this code, or undefined for one the app does not know. */
@@ -157,6 +201,8 @@ export class App {
   private rowsFromList = false;
 
   protected readonly languages = LANGUAGES;
+  protected readonly sources = SOURCES;
+  protected readonly sourceName = SOURCE_NAME;
   protected readonly pageFormats = PAGE_FORMATS;
 
   protected readonly decklist = signal('');
@@ -167,6 +213,8 @@ export class App {
   protected readonly cutMarks = signal(this.saved.cutMarks);
 
   protected readonly rows = signal<Row[]>([]);
+  /** Language of the versions shown in the card dialog (the list's language when it opens). */
+  protected readonly dialogLang = signal('en');
   /** Row shown in the card dialog (enlarged, with its versions). */
   protected readonly dialogRow = signal<number | null>(null);
   /** The row of the card dialog, while it is open and that row exists. */
@@ -448,12 +496,7 @@ export class App {
       this.rows.set([
         ...added.added.map((entry): Row => ({ entry, state: 'pending' })),
         ...old.map(
-          (row): Row => ({
-            ...row,
-            switching: false,
-            searching: false,
-            versionsState: row.versionsState === 'loading' ? undefined : row.versionsState,
-          }),
+          (row): Row => ({ ...row, switching: false, lists: settledLists(row.lists) }),
         ),
       ]);
     }
@@ -515,10 +558,19 @@ export class App {
     const row = this.rows()[index];
     if (!row || row.state === 'pending') return;
     this.stopPreview();
+    this.dialogLang.set(this.resolvedLang);
     this.dialogRow.set(index);
     const dialog = this.cardDialog().nativeElement;
     if (!dialog.open) dialog.showModal();
-    void this.loadVersions(index);
+    this.loadVersions(index, this.resolvedLang);
+  }
+
+  /** Another language chosen in the card dialog: its versions are shown (and loaded the first time). */
+  protected changeDialogLang(lang: string): void {
+    const index = this.dialogRow();
+    this.stopPreview();
+    this.dialogLang.set(lang);
+    if (index !== null) this.loadVersions(index, lang);
   }
 
   protected closeCard(): void {
@@ -550,26 +602,28 @@ export class App {
 
   /** What the dialog's image shows: "Kamigawa: Neon Dynasty · NEO #141 · 2022 · Italiano". */
   protected shownCaption(row: Row, preview: Preview | null): string {
-    const version = preview ? row.versions?.find((v) => v.id === preview.id) : undefined;
+    const version = preview ? findVersion(row, preview.id) : undefined;
     if (version) {
       const lang = languageOf(version.lang)?.name ?? version.lang.toUpperCase();
-      return [version.setName, `${version.setCode.toUpperCase()} #${version.collectorNumber}`, version.releasedAt.slice(0, 4), lang]
+      const site = `image from ${SOURCE_NAME[version.id.startsWith('scryfall:') ? 'scryfall' : 'gatherer']}`;
+      return [version.setName, `${version.setCode.toUpperCase()} #${version.collectorNumber}`, version.releasedAt.slice(0, 4), lang, site]
         .filter(Boolean)
         .join(' · ');
     }
     const card = row.card;
     if (!card) return '';
-    return `${card.setCode.toUpperCase()} #${card.collectorNumber} · ${languageOf(card.lang)?.name ?? card.lang.toUpperCase()}`;
+    const lang = languageOf(card.lang)?.name ?? card.lang.toUpperCase();
+    return `${card.setCode.toUpperCase()} #${card.collectorNumber} · ${lang} · image from ${SOURCE_NAME[card.imageSource]}`;
   }
 
   /**
    * The pointer (or the keyboard focus) is on a version of the card dialog: when its image is
    * already in the cache it takes the place of the card's. Nothing is fetched: clicking the
-   * version is what asks Gatherer.
+   * version is what downloads its image (from Gatherer or Scryfall, the site of its list).
    */
   protected previewVersion(index: number, id: string): void {
     const row = this.rows()[index];
-    const option = row?.versions?.find((v) => v.id === id);
+    const option = row ? findVersion(row, id) : undefined;
     const files = this.previewImages.get(id) ?? (option?.thumbnail ? [option.thumbnail] : null);
     this.preview.set(row && files && id !== row.card?.scryfallId ? { index, id, files } : null);
   }
@@ -578,79 +632,39 @@ export class App {
     this.preview.update((p) => (p?.index === index && p.id === id ? null : p));
   }
 
-  /** Load the versions of a row (once; again after an error). */
-  protected async loadVersions(index: number): Promise<void> {
-    const row = this.rows()[index];
-    if (!row || row.state === 'pending' || row.versionsState === 'loading' || row.versionsState === 'loaded') return;
-    const gen = this.generation;
-    this.patchRow(index, gen, { versionsState: 'loading' });
-    try {
-      const { prints, gathererSearch } = await this.api.prints(row.card?.name ?? row.entry.name, this.resolvedLang);
-      this.patchRow(index, gen, { versions: prints, gathererSearch, versionsState: 'loaded' });
-    } catch {
-      this.patchRow(index, gen, { versionsState: 'error' });
-    }
-  }
-
-  /** "Search Gatherer" is offered while there may be translations left to try (never in English). */
-  protected canSearchGatherer(row: Row): boolean {
-    return this.resolvedLang !== 'en' && !(row.versionsState === 'loaded' && !row.gathererSearch);
-  }
-
-  /** Tooltip of the "Find more versions on Gatherer" link: what it does and how much is left. */
-  protected searchGathererTitle(row: Row): string {
-    const what = `Looks on Gatherer for ${this.resolvedLangName()} versions that Scryfall does not list`;
-    const search = row.gathererSearch;
-    if (!search) return `${what}, a few English prints at a time.`;
-    return `${what}: tries ${search.size} of the ${search.left} English prints left.`;
-  }
-
   /**
-   * "Search Gatherer" (in the card dialog): try the next few English prints on Gatherer in the
-   * list's language. The versions are loaded first if needed.
+   * Load the versions of a row in a language, from Gatherer and from Scryfall at the same time
+   * (each list shows as soon as it arrives); once per language, again after an error.
    */
-  protected async searchGatherer(index: number): Promise<void> {
-    if (!this.rows()[index] || this.rows()[index]?.searching) return;
-    const gen = this.generation;
-    this.patchRow(index, gen, { searching: true, searchNote: undefined });
-    await this.loadVersions(index);
+  protected loadVersions(index: number, lang: string): void {
     const row = this.rows()[index];
-    if (!row || gen !== this.generation) return;
-    if (row.versionsState !== 'loaded') {
-      return this.patchRow(index, gen, { searching: false, searchNote: 'Versions not available: try again.' });
-    }
-    const from = row.gathererSearch?.next;
-    if (from === undefined) {
-      return this.patchRow(index, gen, { searching: false, searchNote: 'Nothing more to look for on Gatherer.' });
-    }
-    try {
-      const result = await this.api.searchGatherer(row.card?.name ?? row.entry.name, this.resolvedLang, from);
-      let foundAny = false;
-      this.patchRow(index, gen, (r) => {
-        const known = new Set((r.versions ?? []).map((v) => v.id));
-        const found = result.prints.filter((p) => !known.has(p.id));
-        foundAny = found.length > 0;
-        const tried = `${result.tried} ${result.tried === 1 ? 'print' : 'prints'}`;
-        return {
-          searching: false,
-          versions: [...(r.versions ?? []), ...found],
-          gathererSearch: result.gathererSearch,
-          searchNote: foundAny
-            ? `Found ${found.length} of ${tried} on Gatherer: they are in the list.`
-            : `Nothing new on Gatherer in ${tried}.`,
-        };
-      });
-    } catch (error) {
-      this.patchRow(index, gen, {
-        searching: false,
-        searchNote: `Search failed: ${errorMessage(error)}`,
-      });
+    if (!row || row.state === 'pending') return;
+    const gen = this.generation;
+    const name = row.card?.name ?? row.entry.name;
+    for (const source of SOURCES) {
+      const state = row.lists?.[lang]?.[source]?.state;
+      if (state === 'loading' || state === 'loaded') continue;
+      this.patchList(index, gen, lang, source, { state: 'loading', prints: [] });
+      const request = source === 'gatherer' ? this.api.gathererPrints(name, lang) : this.api.prints(name, lang);
+      request.then(
+        ({ prints }) => this.patchList(index, gen, lang, source, { state: 'loaded', prints }),
+        () => this.patchList(index, gen, lang, source, { state: 'error', prints: [] }),
+      );
     }
   }
 
-  /** English name of the language the list was resolved in, for the English sentences of the UI. */
-  protected resolvedLangName(): string {
-    return languageOf(this.resolvedLang)?.english ?? this.resolvedLang.toUpperCase();
+  private patchList(index: number, gen: number, lang: string, source: Source, list: VersionList): void {
+    this.patchRow(index, gen, (r) => ({ lists: { ...r.lists, [lang]: { ...r.lists?.[lang], [source]: list } } }));
+  }
+
+  /** A language as it calls itself ("Italiano"), for the card dialog. */
+  protected languageName(code: string): string {
+    return languageOf(code)?.name ?? code.toUpperCase();
+  }
+
+  /** A list of the card dialog, in its language. */
+  protected versionList(row: Row, source: Source): VersionList | undefined {
+    return row.lists?.[this.dialogLang()]?.[source];
   }
 
   /** The user picked another version in the card dialog (which stays open, to see it). */
@@ -661,8 +675,8 @@ export class App {
     // the version being left keeps its preview (its images are in the cache)
     if (row.card) this.previewImages.set(row.card.scryfallId, row.card.images);
     this.patchRow(index, gen, { switching: true, versionError: undefined });
-    const mark =(r: Row, available: Availability, thumbnail: string | null = null): PrintOption[] | undefined =>
-      r.versions?.map((v) => (v.id === id ? { ...v, available, thumbnail: thumbnail ?? v.thumbnail } : v));
+    const mark = (r: Row, available: Availability, thumbnail: string | null = null): Row['lists'] =>
+      mapVersions(r.lists, (v) => (v.id === id ? { ...v, available, thumbnail: thumbnail ?? v.thumbnail } : v));
     try {
       const card = await this.api.print(id, this.resolvedLang);
       this.previewImages.set(card.scryfallId, card.images);
@@ -673,45 +687,34 @@ export class App {
         state: 'ok',
         message: undefined,
         switching: false,
-        versions: mark(r, card.incomplete ? 'front' : 'full', card.images[0] ?? null),
+        lists: mark(r, card.incomplete ? 'front' : 'full', card.images[0] ?? null),
       }));
     } catch (error) {
       this.patchRow(index, gen, (r) => ({
         switching: false,
-        versions: mark(r, 'none'),
+        lists: mark(r, 'none'),
         versionError: errorMessage(error),
       }));
     }
   }
 
-  /** Choices of a row's versions panel, grouped by language; the print in use is always there. */
-  protected versionGroups(row: Row): VersionGroup[] {
-    const detail = (v: { setCode: string; collectorNumber: string; releasedAt?: string }): string =>
-      [`${v.setCode.toUpperCase()} #${v.collectorNumber}`, v.releasedAt?.slice(0, 4)].filter(Boolean).join(' · ');
-    const current = row.card;
-    const versions = row.versions ?? [];
-    const groups: VersionGroup[] = [];
-    if (current && !versions.some((v) => v.id === current.scryfallId)) {
-      groups.push({
-        label: 'In use',
-        options: [{ id: current.scryfallId, title: current.setCode.toUpperCase(), detail: detail(current), status: '', disabled: false }],
-      });
-    }
-    for (const lang of [...new Set(versions.map((v) => v.lang))]) {
-      groups.push({
-        label: languageOf(lang)?.name ?? lang.toUpperCase(),
-        options: versions
-          .filter((v) => v.lang === lang)
-          .map((v) => ({
-            id: v.id,
-            title: v.setName,
-            detail: detail(v),
-            status: v.gathererOnly ? '✓ only on Gatherer' : v.available ? AVAILABILITY_TEXT[v.available] : '',
-            disabled: v.available === 'none' && v.id !== current?.scryfallId,
-          })),
-      });
-    }
-    return groups;
+  /** The choices of one list of the card dialog. */
+  protected versionChoices(row: Row, source: Source): VersionChoice[] {
+    const card = row.card;
+    return (this.versionList(row, source)?.prints ?? []).map((v) => {
+      // only the entry that was chosen: the same print in the other source's part is another choice
+      const current = !!card && v.id === card.scryfallId;
+      const status = v.available ? AVAILABILITY_TEXT[v.available] : '';
+      return {
+        id: v.id,
+        title: v.setName,
+        detail: [`${v.setCode.toUpperCase()} #${v.collectorNumber}`, v.releasedAt.slice(0, 4)].filter(Boolean).join(' · '),
+        status,
+        disabled: v.available === 'none' && !current,
+        current,
+        cached: v.thumbnail !== null || this.previewImages.has(v.id) || (current && !!card?.images.length),
+      };
+    });
   }
 
   protected changeQty(index: number, delta: number): void {
@@ -806,7 +809,7 @@ export class App {
     await this.refreshLists();
   }
 
-  /** The row shows the print chosen by hand (not a fallback because Gatherer lost it). */
+  /** The row shows the print chosen by hand (not a fallback because its images were lost). */
   protected isPinned(row: Row): boolean {
     return !!row.entry.printId && row.entry.printId === row.card?.scryfallId;
   }
@@ -842,6 +845,10 @@ export class App {
   }
 
   protected async clearCache(): Promise<void> {
+    const question =
+      'Clear the cache? The downloaded images and the saved Scryfall and Gatherer answers are deleted, ' +
+      'so the next searches download everything again. Your saved lists are kept.';
+    if (!confirm(question)) return;
     try {
       const { count } = await this.api.clearCache();
       this.previewImages.clear(); // their files are gone

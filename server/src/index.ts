@@ -23,6 +23,7 @@ import { Http } from './http.ts';
 import { Lists } from './lists.ts';
 import { Resolver } from './resolver.ts';
 import { Scryfall } from './scryfall.ts';
+import { ScryfallImages } from './scryfallimages.ts';
 import { embeddedWebApp } from './sea.ts';
 import { FolderSource } from './static.ts';
 import { Updates } from './updates.ts';
@@ -160,7 +161,7 @@ async function main(): Promise<void> {
     delays: DEFAULT_DELAYS,
     log: (message) => console.log(message),
   });
-  const resolver = new Resolver(new Scryfall(http, cache), new Gatherer(http, cache));
+  const resolver = new Resolver(new Scryfall(http, cache), new Gatherer(http, cache), new ScryfallImages(http, cache));
 
   const web = chooseWebApp(values['web-dir']);
 

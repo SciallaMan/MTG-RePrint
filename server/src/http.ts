@@ -1,8 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { GITHUB_DELAY_MS } from './config.ts';
+import { GITHUB_DELAY_MS, SCRYFALL_IMAGES_DELAY_MS } from './config.ts';
 import type { Delays } from './config.ts';
 
-export type HostKind = 'scryfall' | 'gatherer' | 'github';
+/** 'scryfall' is its API, 'scryfall-images' the host of its scans (cards.scryfall.io). */
+export type HostKind = 'scryfall' | 'scryfall-images' | 'gatherer' | 'github';
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 export class HttpError extends Error {
@@ -27,6 +28,8 @@ export interface GetOptions {
   timeoutMs?: number;
   /** Total tries when the server answers 429. */
   attempts?: number;
+  /** Extra request headers. */
+  headers?: Record<string, string>;
 }
 
 const realSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -74,6 +77,7 @@ export class Http {
 
   private delayFor(kind: HostKind): number {
     if (kind === 'github') return GITHUB_DELAY_MS;
+    if (kind === 'scryfall-images') return SCRYFALL_IMAGES_DELAY_MS;
     return kind === 'scryfall' ? this.opts.delays.scryfallMs : this.opts.delays.gathererMs;
   }
 
@@ -129,6 +133,7 @@ export class Http {
           headers: {
             'User-Agent': this.opts.userAgent,
             Accept: 'application/json;q=0.9,image/*;q=0.9,*/*;q=0.8',
+            ...options.headers,
           },
           signal: AbortSignal.timeout(timeoutMs),
         }),

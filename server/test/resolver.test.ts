@@ -90,8 +90,9 @@ test('a name written in the preferred language falls back to the English prints 
   const { found, diag } = await resolver.findCard('Morte o Gloria', 'it');
   assert.equal(found?.card.id, 'en1');
   assert.match(explain(diag, 'it'), /IN\/it-it\/13: no page on Gatherer/);
+  // the versions are those of the language only (another language is chosen in the card dialog)
   const versions = await resolver.versions('Morte o Gloria', 'it');
-  assert.deepEqual(versions.map((v) => v.id), ['it1', 'en1']);
+  assert.deepEqual(versions.map((v) => v.id), ['scryfall:it1']);
 });
 
 test('promos are tried after regular prints', async () => {
@@ -163,7 +164,7 @@ test('a Gatherer page that does not exist is remembered, not asked for again', a
   assert.equal(urls.filter((u) => u.includes('/M10/it-it/')).length, 1);
 });
 
-test('a translation only Gatherer has is listed in the versions and can be chosen again', async () => {
+test('a translation only Gatherer has can be chosen again by its id', async () => {
   const ID = '44444444-4444-4444-4444-444444444444';
   const cayth = card({ id: ID, lang: 'en', set: 'm3c', collector_number: '6', name: 'Cayth, Famed Mechanist', set_name: 'Modern Horizons 3 Commander' });
   const page =
@@ -177,12 +178,6 @@ test('a translation only Gatherer has is listed in the versions and can be chose
       return u.pathname.startsWith('/M3C/en-us/6') ? new Response(pageFor('M3C', 'en-us', '6')) : null;
     })(url);
   });
-
-  const versions = await resolver.versions('Cayth, Famed Mechanist', 'it');
-  assert.deepEqual(
-    versions.map((v) => [v.id, v.lang, v.available, v.gathererOnly ?? false]),
-    [[`${ID}:it`, 'it', 'full', true], [ID, 'en', null, false]],
-  );
 
   const english = await resolver.print(ID);
   assert.equal(english.card?.lang, 'en');

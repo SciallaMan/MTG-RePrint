@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import type {
-  GathererSearchResponse,
   PrintsResponse,
   ResolveEvent,
   ResolveRequest,
@@ -58,14 +57,14 @@ export class Api {
     return this.post('/api/cache/clear', {});
   }
 
-  /** The versions of a card (preferred language, then English) for the dropdown. */
+  /** The prints of a card that Scryfall lists in a language. */
   prints(name: string, lang: string): Promise<PrintsResponse> {
     return this.post('/api/prints', { name, lang });
   }
 
-  /** Look up on Gatherer the next few translations that Scryfall does not list. */
-  searchGatherer(name: string, lang: string, from: number): Promise<GathererSearchResponse> {
-    return this.post('/api/prints/gatherer', { name, lang, from });
+  /** The prints of a card that Gatherer has in a language (their ids are Gatherer link ids). */
+  gathererPrints(name: string, lang: string): Promise<PrintsResponse> {
+    return this.post('/api/gatherer-prints', { name, lang });
   }
 
   /** Use another print of a card. Fails with the reason when Gatherer has no image for it. */

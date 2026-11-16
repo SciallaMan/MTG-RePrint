@@ -10,6 +10,15 @@ export const gathererPageUrl = (set: string, lang: string, num: string): string 
   `https://gatherer.wizards.com/${set}/${lang}/${encodeURIComponent(num)}`;
 export const gathererStaticUrl = (rid: string, ext: string): string =>
   `https://gatherer-static.wizards.com/Cards/medium/${rid}.${ext}`;
+/**
+ * The prints of a card in one language on Gatherer, as the data its pages are built from (React
+ * Server Components rows): what the site itself asks when one moves between its pages. `_rsc` is
+ * only a cache key; without it (or without the "RSC: 1" header) the answer is the HTML page.
+ */
+export const gathererPrintsUrl = (slug: string, lang: string, page: number): string =>
+  `https://gatherer.wizards.com/prints/${encodeURIComponent(slug)}/${lang}?page=${page}&_rsc=mtgreprint`;
+/** Pages of 72 prints read at most per card and language (only basic lands have more than a few). */
+export const MAX_GATHERER_PRINT_PAGES = 10;
 
 /** Language codes used by Gatherer (note: Korean is "ko-ko"). */
 export const GATHERER_LANG: Record<string, string> = {
@@ -44,6 +53,11 @@ export interface Delays {
   gathererMs: number;
 }
 export const DEFAULT_DELAYS: Delays = { scryfallMs: 600, gathererMs: 250 };
+/**
+ * Pause between two downloads of Scryfall's scans (cards.scryfall.io has no rate limit, this is a
+ * courtesy; there is one download per face of a version picked from Scryfall's list).
+ */
+export const SCRYFALL_IMAGES_DELAY_MS = 100;
 
 /** Latest release of the app on GitHub (the "new version" notice). */
 export const RELEASES_REPO = 'SciallaMan/MTG-RePrint';
@@ -59,8 +73,6 @@ export const MAX_PRINTS_TRIED = 8;
  * language (Gatherer often has translations of Commander products that Scryfall lacks).
  */
 export const MAX_GATHERER_ONLY_TRIED = 3;
-/** English prints tried on Gatherer by each "Search Gatherer" of the versions panel. */
-export const GATHERER_SEARCH_SIZE = 3;
 /** A Gatherer page that does not exist is not asked for again for this long. */
 export const MISSING_PAGE_MAX_AGE_MS = 7 * 86_400_000;
 

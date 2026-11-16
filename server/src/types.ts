@@ -6,8 +6,9 @@ export interface DeckEntry {
   setCode: string | null;
   number: string | null;
   /**
-   * Id of a print chosen by hand (see `ResolvedCard.scryfallId`): used as is when Gatherer still has its images.
-   * For a card given by its Gatherer link it is "gatherer:<SET>/<lang>/<number>[/<slug>]", the page to read.
+   * Id of a print chosen by hand (see `ResolvedCard.scryfallId`): used as is while its images can still be had.
+   * For a card given by its Gatherer link it is "gatherer:<SET>/<lang>/<number>[/<slug>]", the page to read;
+   * for a version picked from Scryfall's list "scryfall:<id>" (Scryfall's scans).
    */
   printId?: string | null;
 }
@@ -30,9 +31,11 @@ export interface ResolveRequest {
 
 export interface ResolvedCard {
   /**
-   * Scryfall id of the print; "<id>:<lang>" for a translation that only Gatherer has (the Scryfall
-   * id of the English print and the language of the Gatherer page); "gatherer:<SET>/<lang>/<number>[/<slug>]"
-   * for a card given by the link of its Gatherer page.
+   * Scryfall id of the print (images from Gatherer); "<id>:<lang>" for a translation that only
+   * Gatherer has (the Scryfall id of the English print and the language of the Gatherer page);
+   * "gatherer:<SET>/<lang>/<number>[/<slug>]" for a card given by the link of its Gatherer page or
+   * picked from Gatherer's list; "scryfall:<id>" for a version picked from Scryfall's list, printed
+   * with Scryfall's scan.
    */
   scryfallId: string;
   /** English name (Scryfall). */
@@ -50,11 +53,13 @@ export interface ResolvedCard {
   requestedSetFound: boolean;
   /** File names served by GET /api/images/<file>: one per face. */
   images: string[];
+  /** Whose images these are: Gatherer's, or Scryfall's scans (a version picked from Scryfall's list). */
+  imageSource: ImageSource;
   /** Where the images come from, for diagnostics. */
   source: string;
   /** Why the preferred language was not used, when that is the case. */
   note: string | null;
-  /** Double-faced card whose back face Gatherer does not have: only the front is printed. */
+  /** Double-faced card whose back face the image source does not have: only the front is printed. */
   incomplete: boolean;
   /** A translation that Scryfall does not list: name and image come from its Gatherer page. */
   gathererOnly: boolean;
@@ -64,7 +69,14 @@ export interface ResolvedCard {
   scryfallUrl: string;
 }
 
-/** POST /api/prints: the versions of a card, in the preferred language and in English. */
+/** Where the images of a card come from. */
+export type ImageSource = 'gatherer' | 'scryfall';
+
+/**
+ * POST /api/prints: the prints of a card that Scryfall lists in `lang`, with Scryfall's scans (ids
+ * are "scryfall:<id>"); POST /api/gatherer-prints: those Gatherer has in `lang`, with Gatherer's
+ * images (ids are Gatherer link ids). Answer: PrintsResponse.
+ */
 export interface PrintsRequest {
   /** English name (Scryfall). */
   name: string;
@@ -83,49 +95,14 @@ export interface PrintOption {
   lang: string;
   /** "YYYY-MM-DD". */
   releasedAt: string;
-  /** What Gatherer has for this print, once it has been asked (null before). */
+  /** What the list's source has of this print's images, once known (null before). */
   available: Availability | null;
   /** Front image of the print when it is already in the cache (GET /api/images/<file>): its thumbnail. */
   thumbnail: string | null;
-  /** A translation that Gatherer has and Scryfall does not list. */
-  gathererOnly?: boolean;
 }
 
-/** Where "Search Gatherer" goes on: the translations Scryfall does not list, a few prints at a time. */
-export interface GathererSearch {
-  /** Position of the next English print to try (`from` of POST /api/prints/gatherer). */
-  next: number;
-  /** How many prints the next search tries. */
-  size: number;
-  /** English prints not tried yet. */
-  left: number;
-}
-
-/** Answer of POST /api/prints. */
 export interface PrintsResponse {
   prints: PrintOption[];
-  /** Null when there is nothing (more) to look for on Gatherer (English, or every print tried). */
-  gathererSearch: GathererSearch | null;
-}
-
-/**
- * POST /api/prints/gatherer: look up on Gatherer, in `lang`, the next English prints whose
- * translation Scryfall does not list (answer: GathererSearchResponse).
- */
-export interface GathererSearchRequest {
-  /** English name (Scryfall). */
-  name: string;
-  lang: string;
-  /** `GathererSearch.next`. */
-  from: number;
-}
-
-export interface GathererSearchResponse {
-  /** The translations found in this search (Gatherer has their image). */
-  prints: PrintOption[];
-  /** How many prints were tried. */
-  tried: number;
-  gathererSearch: GathererSearch | null;
 }
 
 /** POST /api/print: use this print (answer: { card } or a 404 with { error }). */

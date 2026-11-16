@@ -1,6 +1,6 @@
 import { BASIC_LANDS } from './config.ts';
 import { parseDecklist } from './decklist.ts';
-import { explain, parseTranslationId } from './resolver.ts';
+import { explain, parseScryfallImageId, parseTranslationId } from './resolver.ts';
 import type { FoundImages } from './gatherer.ts';
 import { gathererLink } from './gatherer.ts';
 import { gathererLinkUrl, parseGathererLink, parseGathererLinkId } from './links.ts';
@@ -10,9 +10,9 @@ import type { ScryfallCard } from './scryfall.ts';
 import type { DeckEntry, ResolveEvent, ResolveRequest, ResolvedCard } from './types.ts';
 
 export const INCOMPLETE_NOTE = 'back face not available on Gatherer: only the front is printed';
-export const PIN_LOST_NOTE = 'the version chosen by hand has no image on Gatherer any more: another print was used';
+export const PIN_LOST_NOTE = 'the version chosen by hand has no image any more: another print was used';
 
-/** The card sent to the browser, from a Scryfall print and its Gatherer images. */
+/** The card sent to the browser, from a Scryfall print and its images (Gatherer's, or Scryfall's scans). */
 export function toResolvedCard(
   card: ScryfallCard,
   images: FoundImages,
@@ -29,6 +29,7 @@ export function toResolvedCard(
     requested: extra.requested,
     requestedSetFound: extra.requestedSetFound,
     images: images.files,
+    imageSource: parseScryfallImageId(card.id) ? 'scryfall' : 'gatherer',
     source: images.source,
     note: [extra.langNote, images.incomplete ? INCOMPLETE_NOTE : null].filter(Boolean).join('; ') || null,
     incomplete: images.incomplete,
@@ -104,7 +105,7 @@ export async function resolveDeck(
     try {
       let pinLost = false;
       if (entry.printId) {
-        // a print chosen by hand (saved list): used as is, unless Gatherer no longer has it
+        // a print chosen by hand (saved list): used as is, unless its images can no longer be had
         const pinned = await print(entry.printId);
         if (pinned.card && pinned.images) {
           const card = chosenPrintCard(pinned.card, pinned.images, request.lang);

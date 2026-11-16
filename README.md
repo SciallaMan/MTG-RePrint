@@ -3,11 +3,11 @@
 A small web app that turns a Magic: The Gathering decklist into a print-ready PDF of proxies. It runs **on your own computer**: you start a local server, your browser opens, you paste a list.
 
 - **Data** (which prints exist, in which language, from which set) comes from [Scryfall](https://scryfall.com).
-- **Images** always come from [Gatherer](https://gatherer.wizards.com), never from Scryfall. If Gatherer has no image for a print, the next print is tried.
+- **Images** come from [Gatherer](https://gatherer.wizards.com): when a card is looked up, a print counts only if Gatherer has its image, otherwise the next print is tried. In the card window you can also pick a version from **Scryfall**'s list, which is then printed with Scryfall's own scan, so for each card you can choose the better of the two.
 - **Language first**: your preferred language (default Italian) is tried before anything else, with your preferred set first and the most recent print after that. English is used only when there is no image in your language, and the card tells you why.
 - **Output**: PDF in A4 or US Letter (3×3 cards per page), A3 (4×4) or US Legal (3×4), at the real size of 63 × 88 mm, with optional cut marks. Print it at 100% ("actual size").
 - Double-faced cards use two slots (front and back). Quantities can be changed in the preview.
-- In the preview each card name links to its Gatherer page. Click a card (or **Versions**) to see it enlarged with its other versions beside it, in your language and in English: point at a version already downloaded to see its image in place of the card's, click a version to use it. The app checks Gatherer at that moment, and marks versions it has already checked (✓, "front only", "no image").
+- In the preview each card name links to its Gatherer page. Click a card (or **Versions**) to see it enlarged with the list of its prints in your language beside it: first those **Gatherer** has, with Gatherer's images, then those **Scryfall** lists, with Scryfall's images. The same print can look different on the two sites (a different scan, sometimes a different language), so pick whichever looks better. Another language can be chosen there when neither list has what you want. Point at a version already downloaded to see its image in place of the card's, click a version to use it.
 
 > This is an unofficial fan tool. Please read the [legal notice](#legal-notice) before using it.
 
@@ -66,7 +66,7 @@ One card per line. Exports from Moxfield and Archidekt work as they are.
 
 Card names are English (the Scryfall name), whatever language you want the printed card to be in.
 
-Clicking a card opens it enlarged with its versions beside it, to pick another print. Gatherer often has translations that Scryfall does not list: **Find more … versions on Gatherer**, under the versions, looks for them three prints at a time and adds what it finds to the list.
+Clicking a card opens it enlarged with the list of its prints, to pick another one: first every print Gatherer has in your language, read from Gatherer's own list of the card's prints (one request, so it also shows the translations Scryfall does not know, and the digital-only versions such as *Through the Omenpaths*), then those Scryfall lists, each with Scryfall's own image. The caption under the enlarged card says which site the image comes from. The language of the list can be changed there.
 
 To add one card once the cards are shown, type it in **Add a card** above them (same format as a decklist line, e.g. `2 Counterspell (MH2) 267`) and press **Add card** or Enter: only that card is looked up, and it goes at the top, and at the top of the decklist text too. A card that is already there (same name, set and number) gets the quantity added instead.
 
@@ -79,8 +79,8 @@ When the app does not find a card that you can see on Gatherer, paste the addres
 Below the cards, give the list a name and press **Save as list**. A saved list remembers the cards, their quantities and the versions you picked by hand in the versions panel (marked "Version chosen by hand"); the other cards are looked up again when you open it, with the language and sets of the moment, so they pick up new prints.
 
 - **Open** a list from "Saved lists" above the decklist. Add cards with **Add a card**, or edit its text: the versions you picked are kept for the cards that are still there. **Save** updates the list, **Save as new** makes a copy.
-- Some translations exist on Gatherer but not on Scryfall (often Commander products): the app finds them anyway, marks the card "Not on Scryfall", and lists them in the versions panel as "only on Gatherer", so a list can keep them too.
-- If Gatherer no longer has the image of a version you picked, another print is used and the card says so.
+- Some translations exist on Gatherer but not on Scryfall (often Commander products): the app finds them anyway, marks the card "Not on Scryfall", and the Gatherer part of the card window lists them, so a list can keep them too.
+- If the image of a version you picked can no longer be had (from Gatherer, or from Scryfall for a version of Scryfall's list), another print is used and the card says so.
 - **Where**: one JSON file per list in `data/lists`, next to the program (see [Where files are kept](#where-files-are-kept)). This is not the cache folder: "Clear cache" never deletes your lists.
 
 ## Cache
